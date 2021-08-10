@@ -1,0 +1,4 @@
+docopt
+matplotlib
+numpy
+pyAudio
