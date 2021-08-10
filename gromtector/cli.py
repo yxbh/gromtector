@@ -19,8 +19,6 @@ from matplotlib.colors import LogNorm
 from matplotlib.image import AxesImage
 from typing import Tuple
 
-from gromtector.audio_mic import SAMPLE_LENGTH, SAMPLE_RATE
-
 from gromtector.audio_mic import AudioMic, open_mic
 from gromtector.spectrogram import get_spectrogram
 from gromtector import logger
@@ -39,7 +37,7 @@ def update_fig(frame: int, im: AxesImage, mic: AudioMic) -> Tuple[AxesImage]:
     outputs: updated image
     """
     data = mic.read()
-    arr_2d, freqs, times = get_spectrogram(data, SAMPLE_RATE)
+    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
     im_data = im.get_array()
 
     # frame cannot be relied upon: we're called multiple times with 0 before it
@@ -66,7 +64,7 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
 
     # Data for first frame
     data = mic.read()
-    arr_2d, freqs, times = get_spectrogram(data, SAMPLE_RATE)
+    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
 
     # Set up the plot parameters
     extent = (times[0], times[-1]*SAMPLES_PER_FRAME, freqs[-1], freqs[0])
@@ -76,13 +74,13 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     ax.set_ylabel('Frequency (Hz)')
     ax.set_title('Real-Time Spectogram')
     ax.invert_yaxis()
-    # fig.colorbar(im)  # enable if you want to display a color bar
+    fig.colorbar(im)  # enable if you want to display a color bar
 
     # Animate
     return FuncAnimation(
         fig,
         func=update_fig, fargs=(im, mic),
-        interval=SAMPLE_LENGTH,
+        interval=mic.desireable_sample_length,
         blit=True,
     )
 
