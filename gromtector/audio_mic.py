@@ -109,9 +109,9 @@ class AudioMic:
 
 
 @contextmanager
-def open_mic():
+def open_mic(chunk_size=None):
     try:
-        mic = AudioMic()
+        mic = AudioMic(chunk_size=chunk_size)
         mic.open()
         yield mic
     finally:

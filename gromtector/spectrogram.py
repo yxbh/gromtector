@@ -4,7 +4,7 @@ from matplotlib.mlab import window_hanning, specgram
 
 NFFT = 256  # 256 #1024 #NFFT value for spectrogram
 OVERLAP = 196  # 512 #overlap value for spectrogram
-OVERLAP = NFFT / 5 * 4
+OVERLAP = NFFT / 2
 
 
 def get_spectrogram(

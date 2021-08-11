@@ -27,7 +27,6 @@ from gromtector import logger
 SAMPLES_PER_FRAME = 5  # Number of mic reads concatenated within a single window
 
 
-
 def update_fig(frame: int, im: AxesImage, mic: AudioMic) -> Tuple[AxesImage]:
     """
     updates the image, just adds on samples at the start until the maximum size is
@@ -46,15 +45,17 @@ def update_fig(frame: int, im: AxesImage, mic: AudioMic) -> Tuple[AxesImage]:
 
     if frame < SAMPLES_PER_FRAME:
         im_data = np.hstack((im_data, arr_2d))
-        im.set_array(im_data)
+        im.set_data(im_data)
     else:
-        im_data = np.hstack((
-            im_data[:, len(times):],
-            arr_2d,
-        ))
-        im.set_array(im_data)
+        im_data = np.hstack(
+            (
+                im_data[:, len(times) :],
+                arr_2d,
+            )
+        )
+        im.set_data(im_data)
 
-    return im,
+    return (im,)
 
 
 def make_plot(mic: AudioMic) -> FuncAnimation:
@@ -65,21 +66,42 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     # Data for first frame
     data = mic.read()
     arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
+    logger.debug("spectrum shape:\n{}".format(arr_2d.shape))
+    logger.debug("spectrum:\n{}".format(arr_2d))
+    logger.debug("freqs shape:\n{}".format(freqs.shape))
+    logger.debug("freqs:\n{}".format(freqs))
+    logger.debug("times shape:\n{}".format(times.shape))
+    logger.debug("times:\n{}".format(times))
+
+    logger.debug("time length: {}".format(len(times)))
+    logger.debug("time avg (ms): {}".format(sum(times) / len(times)))
 
     # Set up the plot parameters
-    extent = (times[0], times[-1]*SAMPLES_PER_FRAME, freqs[-1], freqs[0])
-    im = ax.imshow(arr_2d, aspect='auto', extent=extent, interpolation='none',
-                   cmap='jet', norm=LogNorm(vmin=.01, vmax=1))
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Frequency (Hz)')
-    ax.set_title('Real-Time Spectogram')
+    extent = (times[0], times[-1] * SAMPLES_PER_FRAME, freqs[-1], freqs[0])
+    # vmin = arr_2d.min()
+    # vmax = arr_2d.max()
+    vmin = 1e-7
+    vmax = 1.
+    log_norm = LogNorm(vmin=vmin, vmax=vmax)
+    im = ax.imshow(
+        arr_2d,
+        aspect="auto",
+        extent=extent,
+        interpolation="none",
+        cmap="jet",
+        norm=log_norm,
+    )
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Frequency (Hz)")
+    ax.set_title("Real-Time Spectogram")
     ax.invert_yaxis()
     fig.colorbar(im)  # enable if you want to display a color bar
 
     # Animate
     return FuncAnimation(
         fig,
-        func=update_fig, fargs=(im, mic),
+        func=update_fig,
+        fargs=(im, mic),
         interval=mic.desireable_sample_length,
         blit=True,
     )
@@ -92,6 +114,6 @@ def main():
     logger.debug(cli_params)
 
     logger.debug("Hello World")
-    with open_mic() as mic:
+    with open_mic(chunk_size=4196) as mic:
         animation = make_plot(mic)
         plt.show()
