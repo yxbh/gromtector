@@ -8,7 +8,7 @@ from gromtector.logging import logger
 DEFAULT_FORMAT = pyaudio.paInt16  # conversion format for PyAudio stream
 DEFAULT_CHANNELS = 1  # microphone audio channels
 DEFAULT_SAMPLE_RATE = 48_000  # num audio sample per sec
-DEFAULT_SAMPLE_RATE = 44_100
+# DEFAULT_SAMPLE_RATE = 44_100
 DEFAULT_CHUNK_SIZE = 8192  # number of samples to take per read
 
 # SAMPLE_LENGTH = int(CHUNK_SIZE * 1_000 / SAMPLE_RATE)  # length of each sample in ms
@@ -37,20 +37,20 @@ def _open_mic(sample_rate, channels, chunk_size, format):
     return stream, pa
 
 
-def get_data(stream: pyaudio.Stream, chunk_size: int) -> np.ndarray:
+def get_data(stream: pyaudio.Stream, chunk_size: int = 0) -> np.ndarray:
     """
     get_data:
     reads from the audio stream for a constant length of time, converts it to data
     inputs: stream, PyAudio object
     outputs: int16 data array
     """
-
-    input_data = stream.read(chunk_size, exception_on_overflow=False)
+    num_frames = chunk_size if chunk_size else stream.get_read_available()
+    input_data = stream.read(num_frames, exception_on_overflow=False)
     data = np.frombuffer(input_data, np.int16)
     return data
 
 
-def get_sample(stream: pyaudio.Stream, chunk_size: int) -> np.ndarray:
+def get_sample(stream: pyaudio.Stream, chunk_size: int = 0) -> np.ndarray:
     """
     get_sample:
     gets the audio data from the microphone
