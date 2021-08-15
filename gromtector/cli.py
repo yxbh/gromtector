@@ -25,6 +25,9 @@ from gromtector.spectrogram import get_spectrogram
 from gromtector import logger
 
 
+MAX_VAL = 1e-10
+
+
 def update_fig(frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_im: AxesImage) -> Tuple[AxesImage]:
     """
     updates the image, just adds on samples at the start until the maximum size is
@@ -36,6 +39,12 @@ def update_fig(frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_
     data = mic.read()
     arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
     im_data = im.get_array()
+
+    global MAX_VAL
+    cur_max = arr_2d.max()
+    if ( cur_max > MAX_VAL):
+        MAX_VAL = cur_max
+        logger.debug("New max: {}".format(MAX_VAL))
 
     # frame cannot be relied upon: we're called multiple times with 0 before it
     # starts to increment.
