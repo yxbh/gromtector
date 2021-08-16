@@ -113,7 +113,7 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
         aspect="auto",
         extent=extent,
         interpolation="none",
-        cmap="jet",
+        cmap="inferno",
         norm=norm,
     )
     ax.set_xlabel("Time (s)")
