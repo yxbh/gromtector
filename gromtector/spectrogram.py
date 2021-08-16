@@ -17,7 +17,7 @@ def get_spectrogram_scipy(
 ]:
     f, t, Sxx = scipy_signal.spectrogram(signal, rate)
     if mod_spec:
-        # Sxx = Sxx / NFFT
+        Sxx = Sxx / NFFT
         Sxx = 10 * np.log10(Sxx)
     return Sxx, f, t
 
@@ -53,6 +53,5 @@ def get_spectrogram(
     np.ndarray,  # Frequency axis
     np.ndarray,  # Time axis
 ]:
-    # scipy solution seems faster in the simple case.
     return get_spectrogram_scipy(signal, rate, mod_spec)
     # return get_spectrogram_plt(signal, rate, mod_spec)
