@@ -8,7 +8,7 @@ from gromtector.logging import logger
 DEFAULT_FORMAT = pyaudio.paInt16  # conversion format for PyAudio stream
 DEFAULT_CHANNELS = 1  # microphone audio channels
 DEFAULT_SAMPLE_RATE = 48_000  # num audio sample per sec
-# DEFAULT_SAMPLE_RATE = 44_100
+DEFAULT_SAMPLE_RATE = 44_100
 DEFAULT_CHUNK_SIZE = 8192  # number of samples to take per read
 
 # SAMPLE_LENGTH = int(CHUNK_SIZE * 1_000 / SAMPLE_RATE)  # length of each sample in ms

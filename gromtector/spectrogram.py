@@ -15,9 +15,10 @@ def get_spectrogram_scipy(
     np.ndarray,  # Frequency axis
     np.ndarray,  # Time axis
 ]:
-    f, t, Sxx = scipy_signal.spectrogram(signal, rate)
+    f, t, Sxx = scipy_signal.spectrogram(x=signal, fs=rate)
     if mod_spec:
-        Sxx = Sxx / NFFT
+        # Sxx = Sxx / NFFT
+        # Sxx = Sxx / Sxx.max()
         Sxx = 10 * np.log10(Sxx)
     return Sxx, f, t
 
@@ -37,10 +38,10 @@ def get_spectrogram_plt(
     see matplotlib.mlab.specgram documentation for help"""
 
     arr2D, freqs, bins = specgram(
-        signal, window=window_hanning, Fs=rate, NFFT=NFFT, noverlap=OVERLAP
+        signal, window=window_hanning, Fs=rate
     )
     if mod_spec:
-        arr2D = arr2D / NFFT
+        # arr2D = arr2D / NFFT
         # arr2D = arr2D / arr2D.max()
         arr2D = 10 * np.log10(arr2D)
     return arr2D, freqs, bins
