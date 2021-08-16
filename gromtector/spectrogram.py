@@ -8,7 +8,7 @@ OVERLAP = NFFT / 2
 
 
 def get_spectrogram(
-    signal, rate
+    signal, rate, mod_spec=False
 ) -> Tuple[
     np.ndarray,  # 2D spectrum
     np.ndarray,  # Frequency axis
@@ -24,4 +24,8 @@ def get_spectrogram(
     arr2D, freqs, bins = specgram(
         signal, window=window_hanning, Fs=rate, NFFT=NFFT, noverlap=OVERLAP
     )
+    if mod_spec:
+        # arr2D = arr2D / NFFT
+        # arr2D = arr2D / arr2D.max()
+        arr2D = 10 * np.log10(arr2D)
     return arr2D, freqs, bins

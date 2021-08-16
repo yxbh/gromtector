@@ -16,7 +16,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.image import AxesImage
 from typing import Tuple
 
@@ -25,10 +25,14 @@ from gromtector.spectrogram import get_spectrogram
 from gromtector import logger
 
 
-MAX_VAL = 1e-10
+MAX_VAL = -(2 ** 32)
+MIN_VAL = 2 ** 32
+MOD_SPEC = True
 
 
-def update_fig(frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_im: AxesImage) -> Tuple[AxesImage]:
+def update_fig(
+    frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_im: AxesImage
+) -> Tuple[AxesImage]:
     """
     updates the image, just adds on samples at the start until the maximum size is
     reached, at which point it 'scrolls' horizontally by determining how much of the
@@ -37,14 +41,18 @@ def update_fig(frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_
     outputs: updated image
     """
     data = mic.read()
-    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
+    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate, mod_spec=MOD_SPEC)
     im_data = im.get_array()
 
-    global MAX_VAL
+    global MAX_VAL, MIN_VAL
     cur_max = arr_2d.max()
-    if ( cur_max > MAX_VAL):
+    if cur_max > MAX_VAL:
         MAX_VAL = cur_max
-        logger.debug("New max: {}".format(MAX_VAL))
+        logger.debug("New max: {}, ({}, {})".format(MAX_VAL, MIN_VAL, MAX_VAL))
+    cur_min = arr_2d.min()
+    if cur_min < MIN_VAL:
+        MIN_VAL = cur_min
+        logger.debug("New min: {}, ({}, {})".format(MIN_VAL, MIN_VAL, MAX_VAL))
 
     # frame cannot be relied upon: we're called multiple times with 0 before it
     # starts to increment.
@@ -62,14 +70,14 @@ def update_fig(frame: int, im: AxesImage, mic: AudioMic, file_fig: Figure, file_
         )
     im.set_data(im_data)
 
-    file_im.set_data(im_data)
-    file_fig.savefig(
-        "test_output.png",
-        bbox_inches="tight",
-        transparent=True,
-        pad_inches=0,
-        frameon="false",
-    )
+    # file_im.set_data(im_data)
+    # file_fig.savefig(
+    #     "test_output.png",
+    #     bbox_inches="tight",
+    #     transparent=True,
+    #     pad_inches=0,
+    #     frameon="false",
+    # )
 
     return (im,)
 
@@ -81,7 +89,7 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
 
     # Data for first frame
     data = mic.read()
-    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate)
+    arr_2d, freqs, times = get_spectrogram(data, mic.sample_rate, mod_spec=MOD_SPEC)
     logger.debug("spectrum shape:\n{}".format(arr_2d.shape))
     logger.debug("spectrum:\n{}".format(arr_2d[0]))
     logger.debug("freqs shape:\n{}".format(freqs.shape))
@@ -98,41 +106,44 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     # vmax = arr_2d.max()
     vmin = 1e-7
     vmax = 1.0
-    log_norm = LogNorm(vmin=vmin, vmax=vmax)
+    norm = LogNorm(vmin=vmin, vmax=vmax)
+    norm = Normalize(vmin=-200.0, vmax=200.0)
     im = ax.imshow(
         arr_2d,
         aspect="auto",
         extent=extent,
         interpolation="none",
         cmap="jet",
-        norm=log_norm,
+        norm=norm,
     )
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Frequency (Hz)")
     ax.set_title("Real-Time Spectogram")
     ax.invert_yaxis()
-    # fig.colorbar(im)  # enable if you want to display a color bar
+    fig.colorbar(im)  # enable if you want to display a color bar
 
-    file_fig = plt.figure("file_fig")
-    file_fig_ax = file_fig.gca()
-    file_im = file_fig_ax.imshow(
-        arr_2d,
-        aspect="auto",
-        extent=extent,
-        interpolation="none",
-        cmap="jet",
-        norm=log_norm,
-    )
-    file_fig_ax.axis("off")
-    file_fig.subplots_adjust(left=0,right=1,bottom=0,top=1)
-    file_fig_ax.invert_yaxis()
-    file_fig.savefig(
-        "test_output.png",
-        bbox_inches="tight",
-        transparent=True,
-        pad_inches=0,
-        frameon="false",
-    )
+    file_fig = None
+    file_im = None
+
+    # file_fig = plt.figure("file_fig")
+    # file_fig_ax = file_fig.gca()
+    # file_im = file_fig_ax.imshow(
+    #     arr_2d,
+    #     aspect="auto",
+    #     extent=extent,
+    #     interpolation="none",
+    #     cmap="jet",
+    #     norm=norm,
+    # )
+    # file_fig_ax.axis("off")
+    # file_fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    # file_fig_ax.invert_yaxis()
+    # file_fig.savefig(
+    #     "test_output.png",
+    #     bbox_inches="tight",
+    #     transparent=True,
+    #     pad_inches=0,
+    # )
 
     # Animate
     return FuncAnimation(
@@ -151,6 +162,6 @@ def main():
     logger.debug(cli_params)
 
     logger.debug("Hello World")
-    with open_mic(chunk_size=4196) as mic:
+    with open_mic(chunk_size=4096) as mic:
         animation = make_plot(mic)
         plt.show()
