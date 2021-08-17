@@ -10,6 +10,7 @@ Options:
   -h --help                 Show this screen.
 """
 import os
+import platform
 
 from docopt import docopt
 
@@ -31,6 +32,8 @@ from gromtector import logger
 MAX_VAL = -(2 ** 32)
 MIN_VAL = 2 ** 32
 MOD_SPEC = True
+
+MAX_PLOT_PERIOD_SEC = 200
 
 
 def update_fig(
@@ -61,7 +64,7 @@ def update_fig(
     # starts to increment.
     frame = im_data.shape[1] // len(times)  # current number of frames in the image now.
 
-    max_num_frames = 1 / times[-1]
+    max_num_frames = MAX_PLOT_PERIOD_SEC / times[-1]
     if frame < max_num_frames:
         im_data = np.hstack((im_data, arr_2d))
     else:
@@ -104,13 +107,9 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     logger.debug("time avg (ms): {}".format(sum(times) / len(times)))
 
     # Set up the plot parameters
-    extent = (0, 1, freqs[-1], freqs[0])
-    # vmin = arr_2d.min()
-    # vmax = arr_2d.max()
-    vmin = 1e-7
-    vmax = 1.0
-    norm = LogNorm(vmin=vmin, vmax=vmax)
-    norm = Normalize(vmin=-200.0, vmax=50.0)
+    extent = (0, MAX_PLOT_PERIOD_SEC, freqs[-1], freqs[0])
+    norm = LogNorm(vmin=1e-7, vmax=1.0)
+    norm = Normalize(vmin=-40.0, vmax=40.0)
     im = ax.imshow(
         arr_2d,
         aspect="auto",
@@ -127,7 +126,6 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
 
     file_fig = None
     file_im = None
-
     # file_fig = plt.figure("file_fig")
     # file_fig_ax = file_fig.gca()
     # file_im = file_fig_ax.imshow(
@@ -153,7 +151,7 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
         fig,
         func=update_fig,
         fargs=(im, mic, file_fig, file_im),
-        interval=mic.desireable_sample_length,
+        interval=mic.desireable_sample_length/5,
         blit=True,
     )
 
@@ -165,7 +163,14 @@ def main():
     logger.debug(cli_params)
 
     logger.debug("Hello World")
-    afile = AudioFile(file_path=os.path.expanduser("~/Desktop/voice_clip_goodboy.m4a"))
+    if platform.system() == "Darwin":
+        afile = AudioFile(
+            file_path=os.path.expanduser("~/Desktop/voice_clip_goodboy.m4a")
+        )
+    else:
+        afile = AudioFile(
+            file_path="samples/Clip (July 14 2021 at 840 AM).mp4", chunk_size=4196
+        )
     animation = make_plot(afile)
 
     # with open_mic(chunk_size=4096) as mic:
