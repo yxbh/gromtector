@@ -9,17 +9,20 @@ Options:
   --log-level=<log_lvl>     Logging level.
   -h --help                 Show this screen.
 """
+import os
+
 from docopt import docopt
-from matplotlib.figure import Figure
 
 import numpy as np
 
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.image import AxesImage
 from typing import Tuple
 
+from gromtector.audio_file import AudioFile
 from gromtector.audio_mic import AudioMic, open_mic
 from gromtector.spectrogram import get_spectrogram
 from gromtector import logger
@@ -107,7 +110,7 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     vmin = 1e-7
     vmax = 1.0
     norm = LogNorm(vmin=vmin, vmax=vmax)
-    norm = Normalize(vmin=-200.0, vmax=200.0)
+    norm = Normalize(vmin=-200.0, vmax=50.0)
     im = ax.imshow(
         arr_2d,
         aspect="auto",
@@ -162,6 +165,12 @@ def main():
     logger.debug(cli_params)
 
     logger.debug("Hello World")
-    with open_mic(chunk_size=4096) as mic:
-        animation = make_plot(mic)
-        plt.show()
+    afile = AudioFile(file_path=os.path.expanduser("~/Desktop/voice_clip_goodboy.m4a"))
+    animation = make_plot(afile)
+
+    # with open_mic(chunk_size=4096) as mic:
+    #     animation = make_plot(mic)
+
+    plt.show()
+
+    logger.debug("Bye World")
