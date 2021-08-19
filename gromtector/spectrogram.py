@@ -19,7 +19,8 @@ def get_spectrogram_scipy(
     if mod_spec:
         # Sxx = Sxx / NFFT
         # Sxx = Sxx / Sxx.max()
-        Sxx = 10 * np.log10(Sxx)
+        # Sxx = 10 * np.log10(Sxx)  # power
+        Sxx = 20 * np.log10(Sxx)  # Amplitude
     return Sxx, f, t
 
 
@@ -43,7 +44,8 @@ def get_spectrogram_plt(
     if mod_spec:
         # arr2D = arr2D / NFFT
         # arr2D = arr2D / arr2D.max()
-        arr2D = 10 * np.log10(arr2D)
+        # arr2D = 10 * np.log10(arr2D)  # power
+        arr2D = 20 * np.log10(arr2D)  # Amplitude
     return arr2D, freqs, bins
 
 

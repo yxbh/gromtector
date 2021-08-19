@@ -2,10 +2,11 @@
 gromtector
 
 Usage:
-  gromtector [--log-level=<log_lvl>]
+  gromtector [--file=<INPUT_FILE>] [--log-level=<log_lvl>]
   gromtector -h | --help
 
 Options:
+  --file=<INPUT_FILE>       Input audio/video file path.
   --log-level=<log_lvl>     Logging level.
   -h --help                 Show this screen.
 """
@@ -23,6 +24,8 @@ from matplotlib.colors import LogNorm, Normalize
 from matplotlib.image import AxesImage
 from typing import Tuple
 
+import pyaudio
+
 from gromtector.audio_file import AudioFile
 from gromtector.audio_mic import AudioMic, open_mic
 from gromtector.spectrogram import get_spectrogram
@@ -33,7 +36,10 @@ MAX_VAL = -(2 ** 32)
 MIN_VAL = 2 ** 32
 MOD_SPEC = True
 
-MAX_PLOT_PERIOD_SEC = 200
+MAX_PLOT_PERIOD_SEC = 1.0
+
+AUDIO_OUTPUT = None
+AUDIO_OUTPUT_STREAM = None
 
 
 def update_fig(
@@ -76,6 +82,9 @@ def update_fig(
         )
     im.set_data(im_data)
 
+    if AUDIO_OUTPUT_STREAM:
+        AUDIO_OUTPUT_STREAM.write(data)
+
     # file_im.set_data(im_data)
     # file_fig.savefig(
     #     "test_output.png",
@@ -84,6 +93,8 @@ def update_fig(
     #     pad_inches=0,
     #     frameon="false",
     # )
+
+    # logger.debug("Frame")
 
     return (im,)
 
@@ -146,12 +157,19 @@ def make_plot(mic: AudioMic) -> FuncAnimation:
     #     pad_inches=0,
     # )
 
+    global AUDIO_OUTPUT_STREAM
+    if AUDIO_OUTPUT_STREAM:
+        AUDIO_OUTPUT_STREAM.write(data.tobytes())
+
+    animate_interval_ms = mic.desireable_sample_interval_ms
+    logger.debug("Animation interval (ms): {}".format(animate_interval_ms))
+
     # Animate
     return FuncAnimation(
         fig,
         func=update_fig,
         fargs=(im, mic, file_fig, file_im),
-        interval=mic.desireable_sample_length/5,
+        interval=animate_interval_ms,
         blit=True,
     )
 
@@ -163,19 +181,33 @@ def main():
     logger.debug(cli_params)
 
     logger.debug("Hello World")
-    if platform.system() == "Darwin":
-        afile = AudioFile(
-            file_path=os.path.expanduser("~/Desktop/voice_clip_goodboy.m4a")
+
+    if cli_params["--file"]:
+        input_file_path = cli_params["--file"]
+        if platform.system() == "Darwin" and input_file_path.startswith("~"):
+            input_file_path = os.path.expanduser(input_file_path)
+        aud_input = AudioFile(file_path=input_file_path, chunk_size=4096)
+
+        global AUDIO_OUTPUT, AUDIO_OUTPUT_STREAM
+        AUDIO_OUTPUT = pyaudio.PyAudio()
+        AUDIO_OUTPUT_STREAM = AUDIO_OUTPUT.open(
+            format=AUDIO_OUTPUT.get_format_from_width(
+                aud_input.audio_segment.seg.sample_width,  # or maybe frame_width?
+            ),
+            channels=aud_input.audio_segment.channels,
+            rate=aud_input.audio_segment.frame_rate,
+            output=True,
         )
+
+        animation = make_plot(aud_input)
+        plt.show()
+        AUDIO_OUTPUT_STREAM.stop_stream()
+        AUDIO_OUTPUT_STREAM.close()
+        AUDIO_OUTPUT.terminate()
+
     else:
-        afile = AudioFile(
-            file_path="samples/Clip (July 14 2021 at 840 AM).mp4", chunk_size=4196
-        )
-    animation = make_plot(afile)
-
-    # with open_mic(chunk_size=4096) as mic:
-    #     animation = make_plot(mic)
-
-    plt.show()
+        with open_mic(chunk_size=4096) as aud_input:
+            animation = make_plot(aud_input)
+            plt.show()
 
     logger.debug("Bye World")

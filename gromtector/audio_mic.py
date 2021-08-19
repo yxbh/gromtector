@@ -1,11 +1,12 @@
 from contextlib import contextmanager
+from random import sample
 
 import pyaudio
 import numpy as np
 
 from gromtector.logging import logger
 
-DEFAULT_FORMAT = pyaudio.paInt16  # conversion format for PyAudio stream
+DEFAULT_SAMPLE_WIDTH = 2  # pyaudio.paInt16  # conversion format for PyAudio stream
 DEFAULT_CHANNELS = 1  # microphone audio channels
 DEFAULT_SAMPLE_RATE = 48_000  # num audio sample per sec
 DEFAULT_SAMPLE_RATE = 44_100
@@ -18,7 +19,7 @@ DEFAULT_SAMPLE_LENGTH = int(
 )  # chunk duration.
 
 
-def _open_mic(sample_rate, channels, chunk_size, format):
+def _open_mic(sample_rate, channels, chunk_size, sample_width):
     """
     open_mic:
     creates a PyAudio object and initializes the mic stream
@@ -28,7 +29,7 @@ def _open_mic(sample_rate, channels, chunk_size, format):
 
     pa = pyaudio.PyAudio()
     stream = pa.open(
-        format=format,
+        format=pyaudio.get_format_from_width(sample_width),
         channels=channels,
         rate=sample_rate,
         input=True,
@@ -66,7 +67,7 @@ class AudioMic:
         self.sample_rate = sample_rate if sample_rate else DEFAULT_SAMPLE_RATE
         self.channels = channels if channels else DEFAULT_CHANNELS
         self.chunk_size = chunk_size if chunk_size else DEFAULT_CHUNK_SIZE
-        self.format = DEFAULT_FORMAT
+        self.sample_width = DEFAULT_SAMPLE_WIDTH
         self.stream = None
         self.pa = None
         if open:
@@ -79,7 +80,7 @@ class AudioMic:
             sample_rate=self.sample_rate,
             channels=self.channels,
             chunk_size=self.chunk_size,
-            format=self.format,
+            sample_width=self.sample_width,
         )
         self.stream = stream
         self.pa = pa
@@ -87,14 +88,16 @@ class AudioMic:
     def read(self):
         return get_sample(self.stream, self.chunk_size)
 
-    def get_desireable_sample_length(self):
+    def get_desireable_sample_interval_ms(self):
         sample_per_ms = self.sample_rate / 1000  # sample per ms
-        sample_length = int(self.chunk_size / sample_per_ms)  # chunk duration.
+        sample_length = int(
+            self.chunk_size / self.sample_width / sample_per_ms
+        )  # chunk duration.
         return sample_length
 
     @property
-    def desireable_sample_length(self):
-        return self.get_desireable_sample_length()
+    def desireable_sample_interval_ms(self):
+        return self.get_desireable_sample_interval_ms()
 
     def close(self):
         if not self.stream:
