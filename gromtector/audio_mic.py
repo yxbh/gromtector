@@ -1,10 +1,12 @@
 from contextlib import contextmanager
 from random import sample
+from typing import Dict, Tuple, ByteString
+import logging
 
 import pyaudio
 import numpy as np
 
-from gromtector.logging import logger
+logger = logging.getLogger(__name__)
 
 DEFAULT_SAMPLE_WIDTH = 2  # pyaudio.paInt16  # conversion format for PyAudio stream
 DEFAULT_CHANNELS = 1  # microphone audio channels
@@ -34,6 +36,26 @@ def _open_mic(sample_rate, channels, chunk_size, sample_width):
         rate=sample_rate,
         input=True,
         frames_per_buffer=chunk_size,
+    )
+    return stream, pa
+
+
+def _open_callback_mic(sample_rate, channels, sample_width, callback):
+    """
+    open_mic:
+    creates a PyAudio object and initializes the mic stream
+    inputs: none
+    ouputs: stream, PyAudio object
+    """
+
+    pa = pyaudio.PyAudio()
+    stream = pa.open(
+        format=pyaudio.get_format_from_width(sample_width),
+        channels=channels,
+        rate=sample_rate,
+        input=True,
+        # frames_per_buffer=chunk_size,
+        stream_callback=callback,
     )
     return stream, pa
 
@@ -79,7 +101,6 @@ class AudioMic:
         stream, pa = _open_mic(
             sample_rate=self.sample_rate,
             channels=self.channels,
-            chunk_size=self.chunk_size,
             sample_width=self.sample_width,
         )
         self.stream = stream
@@ -119,3 +140,89 @@ def open_mic(chunk_size=None):
         yield mic
     finally:
         mic.close()
+
+
+class CallbackAudioMic:
+    def __init__(self, open=False, sample_rate=None, channels=None):
+        self.sample_rate = sample_rate if sample_rate else DEFAULT_SAMPLE_RATE
+        self.channels = channels if channels else DEFAULT_CHANNELS
+        self.sample_width = DEFAULT_SAMPLE_WIDTH
+        self.stream = None
+        self.pa = None
+        if open:
+            self.open()
+
+    def callback(
+        self,
+        input_data: ByteString,
+        frame_count: int,
+        time_info: dict,
+        status_flag: int,
+    ) -> Tuple[ByteString, int]:
+        """
+        callback(
+            in_data,      # recorded data if input=True; else None
+            frame_count,  # number of frames
+            time_info,    # dictionary
+            status_flags) # PaCallbackFlags
+
+        Returns `(out_data, flag)`
+
+        `time_info` is a dictionary with the following keys: `input_buffer_adc_time`, `current_time`, and `output_buffer_dac_time`; see the PortAudio documentation for their meanings.
+        `status_flags` is one of PortAutio Callback Flag.
+
+        `out_data` is a byte array whose length should be the `(frame_count * channels * bytes-per-channel)` if `output=True` or `None` if `output=False`.
+        flag must be either paContinue, paComplete or paAbort (one of PortAudio Callback Return Code).
+        When `output=True` and `out_data` does not contain at least `frame_count` frames, `paComplete` is assumed for flag.
+        """
+        # logger.debug("CallbackAudioMic callback()")
+        self.buffer += input_data
+        out_data = input_data
+        # logger.debug("Mic flag: {}".format(status_flag))
+        if status_flag in [
+            pyaudio.paInputUnderflow,
+            pyaudio.paInputOverflow,
+        ]:
+            logger.warning("Some sort of audio mic input overflow/underflow has occurred.")
+        return (out_data, pyaudio.paContinue)
+
+    def open(self):
+        if self.stream is not None or self.pa is not None:
+            raise RuntimeError("Opening an open mic.")
+        stream, pa = _open_callback_mic(
+            sample_rate=self.sample_rate,
+            channels=self.channels,
+            sample_width=self.sample_width,
+            callback=self.callback,
+        )
+        self.stream = stream
+        self.pa = pa
+        self.stream.start_stream()
+        self.buffer = b""
+
+    def read(self):
+        buf = np.frombuffer(self.buffer, dtype=np.int16)
+        self.buffer = b""
+        return buf
+
+    def get_desireable_sample_interval_ms(self):
+        sample_per_ms = self.sample_rate / 1000  # sample per ms
+        sample_length = int(
+            self.chunk_size / self.sample_width / sample_per_ms
+        )  # chunk duration.
+        return sample_length
+
+    @property
+    def desireable_sample_interval_ms(self):
+        return self.get_desireable_sample_interval_ms()
+
+    def close(self):
+        if not self.stream:
+            raise RuntimeError("Closing an unopen mic.")
+        if not self.pa:
+            raise RuntimeError("Closing an unopen mic.")
+        self.stream.stop_stream()
+        self.stream.close()
+        self.stream = None
+        self.pa.terminate()
+        self.pa = None
