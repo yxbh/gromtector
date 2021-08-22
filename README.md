@@ -6,6 +6,10 @@ A real time audio classifier focused on detecting my neighbours and my dog's bar
 
 Few things we need to do setup audio processing on windows.
 
+### PyAudio
+
+For windows, download suitable PyAudio wheel file from here and pip install.
+
 ### ffmpeg
 
 Go to <https://www.gyan.dev/ffmpeg/builds/> or whereever to get a copy of built ffmpeg binaries.  
