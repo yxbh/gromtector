@@ -1,5 +1,7 @@
+audiosegment
 docopt
 matplotlib
 numpy
 pyAudio
+pygame
 scipy
