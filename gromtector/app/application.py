@@ -14,13 +14,16 @@ APP_SINGLETON = None
 
 
 class Application(BaseApplication):
-    def __init__(self, system_classes=[]):
+    def __init__(self, args, system_classes=[]):
         global APP_SINGLETON
         if APP_SINGLETON is not None:
             raise RuntimeError(
                 "There's already an instance of {} running.".format(self.__class__)
             )
         APP_SINGLETON = self
+        
+        self.args = args
+
         pg.init()
         logo_img = pg.image.load("gromtector/app/assets/logo.jpg")
         pg.display.set_icon(logo_img)
