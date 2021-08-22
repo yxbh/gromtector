@@ -101,6 +101,7 @@ class AudioMic:
         stream, pa = _open_mic(
             sample_rate=self.sample_rate,
             channels=self.channels,
+            chunk_size=self.chunk_size,
             sample_width=self.sample_width,
         )
         self.stream = stream
