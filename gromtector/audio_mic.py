@@ -139,6 +139,9 @@ def open_mic(chunk_size=None):
         mic = AudioMic(chunk_size=chunk_size)
         mic.open()
         yield mic
+    except Exception as e:
+        logger.exception("Something went wrong creating an AudioMic object.")
+        raise
     finally:
         mic.close()
 
