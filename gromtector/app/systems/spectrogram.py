@@ -13,7 +13,9 @@ class SpectrogramSystem(BaseSystem):
 
     def test(self, event_type, audio_mic_evt):
         # logger.debug("Received {} len of audio data.".format(len(audio_mic_data)))
-        Sxx, freqs, times = get_spectrogram(signal=audio_mic_evt.data, rate=audio_mic_evt.rate)
+        Sxx, freqs, times = get_spectrogram(
+            signal=audio_mic_evt.data, rate=audio_mic_evt.rate, mod_spec=True
+        )
         logger.debug("spectrum shape:\n{}".format(Sxx.shape))
         logger.debug("spectrum:\n{}".format(Sxx[0]))
         logger.debug("freqs shape:\n{}".format(freqs.shape))
