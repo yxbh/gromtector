@@ -1,1 +1,1 @@
-from .Application import Application
+from .application import Application

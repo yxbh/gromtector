@@ -1,2 +1,2 @@
 from gromtector.logging import logger
-from gromtector.app.Application import Application
+from gromtector.app.application import Application
