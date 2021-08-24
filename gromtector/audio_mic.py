@@ -13,6 +13,7 @@ DEFAULT_CHANNELS = 1  # microphone audio channels
 DEFAULT_SAMPLE_RATE = 48_000  # num audio sample per sec
 DEFAULT_SAMPLE_RATE = 44_100
 DEFAULT_CHUNK_SIZE = 8192  # number of samples to take per read
+DEFAULT_CHUNK_SIZE = 1024
 
 # SAMPLE_LENGTH = int(CHUNK_SIZE * 1_000 / SAMPLE_RATE)  # length of each sample in ms
 DEFAULT_SAMPLE_PER_MS = DEFAULT_SAMPLE_RATE / 1000  # sample per ms
@@ -181,7 +182,7 @@ class CallbackAudioMic:
         """
         # logger.debug("CallbackAudioMic callback()")
         self.buffer += input_data
-        out_data = input_data
+        out_data = None  # null coz this is an input stream.
         # logger.debug("Mic flag: {}".format(status_flag))
         if status_flag in [
             pyaudio.paInputUnderflow,

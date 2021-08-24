@@ -11,12 +11,12 @@ from gromtector.audio_mic import AudioMic, CallbackAudioMic
 logger = logging.getLogger(__name__)
 
 
-InputAudioMicEvent = namedtuple("InputAudioMicEvent", ["data", "rate"])
+InputAudioDataEvent = namedtuple("InputAudioDataEvent", ["data", "rate"])
 
 
 class AudioMicSystem(BaseSystem):
     def init(self):
-        self.mic = CallbackAudioMic()
+        self.mic = AudioMic(channels=1, sample_rate=44100)
         self.mic.open()
         self.running = True
         self.audio_thread = None
@@ -33,10 +33,10 @@ class AudioMicSystem(BaseSystem):
         while not self.audio_data_queue.empty():
             dataset.append(self.audio_data_queue.get())
         if dataset:
-            data = np.concatenate(dataset) 
+            data = np.concatenate(dataset)
             self.get_event_manager().queue_event(
-                "new_audio_mic_data",
-                InputAudioMicEvent(data=data, rate=self.mic.sample_rate),
+                "new_audio_data",
+                InputAudioDataEvent(data=data, rate=self.mic.sample_rate),
             )
         pass
 
@@ -55,7 +55,7 @@ class AudioMicSystem(BaseSystem):
             if system.mic.stream.is_stopped():
                 logger.info("Audio mic stream has stopped.")
                 break
-            if not system.mic.buffer:
+            if hasattr(system.mic, "buffer") and not system.mic.buffer:
                 continue
 
             data = system.mic.read()

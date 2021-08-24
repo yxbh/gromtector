@@ -17,13 +17,15 @@ import platform
 from docopt import docopt
 
 
-from gromtector.app.application import Application
+from gromtector.app import Application
 from gromtector.app.systems.debug import DebugSystem
 from gromtector.app.systems.mic import AudioMicSystem
+from gromtector.app.systems.audio_file import AudioFileSystem
 from gromtector.app.systems.spectrogram import SpectrogramSystem
+from gromtector.app.systems.sgram_graph import SpectrogramGraphSystem
+from gromtector.app.systems.hud import HudSystem
 
 from gromtector.logging import FORMAT
-from gromtector.app import Application
 
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
@@ -39,13 +41,24 @@ def main():
 
     logger.debug("Hello World")
 
+    if cli_params["--file"]:
+        system_classes = [
+            AudioFileSystem,
+        ]
+    else:
+        system_classes = [
+            AudioMicSystem,
+        ]
+    system_classes += [
+        DebugSystem,
+        SpectrogramSystem,
+        SpectrogramGraphSystem,
+        HudSystem,
+    ]
+
     app = Application(
         args=cli_params,
-        system_classes=[
-            DebugSystem,
-            AudioMicSystem,
-            SpectrogramSystem,
-        ],
+        system_classes=system_classes,
     )
     app.run()
 

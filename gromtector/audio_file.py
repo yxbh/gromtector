@@ -8,6 +8,10 @@ import audiosegment as ad
 DEFAULT_CHUNK_SIZE = 8192  # number of samples to take per read
 
 
+class FilePlaybackFinished(Exception):
+    pass
+
+
 class AudioFile:
     def __init__(self, file_path, chunk_size=None):
         self.file_path = os.path.abspath(file_path)
@@ -30,7 +34,7 @@ class AudioFile:
         end = self.cursor + self.chunk_size
         seg_raw_data = self.audio_segment.seg.raw_data
         if end >= len(seg_raw_data):
-            raise RuntimeError("All over")
+            raise FilePlaybackFinished("All over")
 
         if end > len(seg_raw_data):
             end = len(seg_raw_data)
