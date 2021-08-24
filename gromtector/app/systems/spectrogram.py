@@ -48,6 +48,7 @@ class SpectrogramSystem(BaseSystem):
                 "new_spectrum_shape": Sxx.shape,
                 "new_frequencies_shape": freqs.shape,
                 "new_times_shape": times.shape,
+                "new_min_time": times[0],
                 "new_max_time": times[-1],
             },
         )

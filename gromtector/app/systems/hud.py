@@ -10,6 +10,7 @@ class HudSystem(BaseSystem):
     frequencies_shape = None
     times_shape = None
     times_max = None
+    times_min = None
 
     def init(self):
         self.font = pgft.SysFont(pgft.get_default_font(), size=12)
@@ -27,6 +28,7 @@ class HudSystem(BaseSystem):
         self.frequencies_shape = event["new_frequencies_shape"]
         self.times_shape = event["new_times_shape"]
         self.times_max = event["new_max_time"]
+        self.times_min = event["new_min_time"]
 
     def update(self, elapsed_time_ms: int) -> None:
         render_surface = self.get_app().window.window_surface
@@ -50,7 +52,7 @@ class HudSystem(BaseSystem):
         y_offset += shapes_txt_rect.height
 
         time_txt_surface, time_txt_rect = self.font.render(
-            "MAX TIME: {}".format(self.times_max),
+            "MAX TIME: {}, MIN TIME: {}".format(self.times_max, self.times_min),
             fgcolor=txt_color,
         )
         render_surface.blit(time_txt_surface, (0, y_offset))
