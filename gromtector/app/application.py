@@ -31,7 +31,7 @@ class Application(BaseApplication):
         self.running = True
 
         self.clock = pg.time.Clock()
-        self.max_fps = 144
+        self.max_fps = int(self.args.get("--max-fps", 60))
 
         self.event_manager = EventManager()
 
