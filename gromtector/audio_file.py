@@ -6,6 +6,7 @@ import audiosegment as ad
 
 
 DEFAULT_CHUNK_SIZE = 8192  # number of samples to take per read
+DEFAULT_CHUNK_SIZE = 1024
 
 
 class FilePlaybackFinished(Exception):
