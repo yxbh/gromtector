@@ -1,0 +1,119 @@
+import logging
+import threading
+import zipfile
+from typing import Sequence
+import numpy as np
+import tensorflow as tf
+import audiosegment as ad
+
+from .BaseSystem import BaseSystem
+
+
+logger = logging.getLogger(__name__)
+
+
+class TfYamnetSystem(BaseSystem):
+    """
+    Reference: https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1
+    """
+
+    model_path: str = None
+    model: tf.lite.Interpreter = None
+    model_sample_rate: int = 16000
+    model_labels: Sequence[str] = None
+    raw_audio_buffer = b""
+    running: bool = False
+    inference_thread: threading.Thread = None
+
+    def init(self):
+        self.model_path = self.get_config().get("--tf-model", "model/")
+        logger.debug('Tensorflow model: "{}"'.format(self.model_path))
+        logger.debug("Loading model...")
+        self.model = tf.lite.Interpreter(self.model_path)
+        logger.debug("Loading model... DONE")
+
+        logger.debug("Loading model labels...")
+        labels_file = zipfile.ZipFile(self.model_path).open("yamnet_label_list.txt")
+        self.model_labels = [l.decode("utf-8").strip() for l in labels_file.readlines()]
+        logger.debug("Loading model labels... DONE")
+
+        logger.debug("Setting model stuff up...")
+        interpreter = self.model
+        self.input_details = interpreter.get_input_details()
+        self.waveform_input_index = self.input_details[0]["index"]
+        self.output_details = interpreter.get_output_details()
+        self.scores_output_index = self.output_details[0]["index"]
+        interpreter.allocate_tensors()
+        logger.debug("Setting model stuff up... DONE")
+
+        self.get_event_manager().add_listener("new_audio_data", self.recv_audio_data)
+
+        self.running = True
+
+    def shutdown(self):
+        self.running = False
+        self.inference_thread.join()
+
+    def run(self):
+        self.inference_thread = threading.Thread(
+            target=self.__class__.run_inference_thread, args=(self,)
+        )
+        self.inference_thread.start()
+
+    def recv_audio_data(self, event_type, audio_event) -> None:
+        audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
+
+        # resample the audio to rate needed by the model.
+        resampled_audio_seg = audio_seg.resample(
+            sample_rate_Hz=16000, sample_width=2, channels=1
+        )
+        if self.raw_audio_buffer is None:
+            self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
+        else:
+            temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
+            self.raw_audio_buffer = temp[-self.model_sample_rate :]
+
+    @classmethod
+    def run_inference_thread(cls, system):
+        while system.running:
+            if not system.model or not system.model_labels:
+                logger.warning("Model not ready.")
+                continue
+
+            interpreter = system.model
+
+            pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
+            pcm_f32 = pcm_int16.astype(dtype=np.float32)
+
+            num_samples = int(0.975 * system.model_sample_rate)
+            pcm_f32 = np.pad(pcm_f32, (0, num_samples - pcm_f32.size))
+            waveform = np.zeros(num_samples, dtype=np.float32)
+            waveform[0:num_samples] = pcm_f32[:num_samples]
+
+            # interpreter.resize_tensor_input(
+            #     system.waveform_input_index, [waveform.size], strict=True
+            # )
+            # interpreter.allocate_tensors()
+            interpreter.set_tensor(system.waveform_input_index, waveform)
+            interpreter.invoke()
+            scores = interpreter.get_tensor(system.scores_output_index)
+
+            top_class_index = scores.argmax()
+            top_5_results = tf.math.top_k(scores, k=5)
+            top_5_class_indices = top_5_results.indices[0].numpy()
+            top_5_class_probs = top_5_results.values[0].numpy()
+            # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
+            logger.debug(
+                "Detected: {}".format(
+                    ", ".join(
+                        [
+                            "{} ({})".format(
+                                system.model_labels[idx], scores[0][idx]
+                            )
+                            for idx in top_5_class_indices
+                        ]
+                    )
+                )
+            )
+
+        logger.debug("Reaching the end of the model inference thread.")

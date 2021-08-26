@@ -1,3 +1,5 @@
+from typing import Mapping
+
 from ..EventManager import EventManager
 from ..BaseApplication import BaseApplication
 
@@ -13,6 +15,9 @@ class BaseSystem:
 
     def get_event_manager(self) -> EventManager:
         return self.get_app().get_event_manager()
+
+    def get_config(self) -> Mapping:
+        return self.config
 
     def init(self,) -> None:
         pass

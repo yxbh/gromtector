@@ -9,14 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 class SpectrogramSystem(BaseSystem):
+    audio_data_buffer: np.ndarray = None
+    sample_rate: int = None
+    sample_interval_to_keep_s: float = 2.0
+
     def init(self):
         self.get_event_manager().add_listener(
             "new_audio_data", self.receive_audio_data
         )
-
-        self.audio_data_buffer = None
-        self.sample_rate = None
-        self.sample_interval_to_keep_s = 2.0
 
     def receive_audio_data(self, event_type, audio_mic_evt):
         self.sample_rate = audio_mic_evt.rate
