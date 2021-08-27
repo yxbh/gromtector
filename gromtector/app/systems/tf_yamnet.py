@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import threading
+import time
 import zipfile
 from typing import Sequence
 import numpy as np
@@ -99,8 +100,10 @@ class TfYamnetSystem(BaseSystem):
             # )
             # interpreter.allocate_tensors()
             interpreter.set_tensor(system.waveform_input_index, waveform)
+            start = time.time()
             interpreter.invoke()
             scores = interpreter.get_tensor(system.scores_output_index)
+            end = time.time()
 
             top_class_index = scores.argmax()
             top_results = tf.math.top_k(scores, k=10)
@@ -108,13 +111,14 @@ class TfYamnetSystem(BaseSystem):
             top_class_probs = top_results.values[0].numpy()
             # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
             logger.debug(
-                "Detected: {}".format(
+                "Detected (took {:.3f}s): {}".format(
+                    (end - start),
                     ", ".join(
                         [
-                            "{} ({})".format(system.model_labels[idx], scores[0][idx])
+                            "{} ({:.3f})".format(system.model_labels[idx], scores[0][idx])
                             for idx in top_class_indices
                         ]
-                    )
+                    ),
                 )
             )
             system.get_event_manager().queue_event(
