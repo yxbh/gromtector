@@ -30,18 +30,20 @@ def blit_text(surface, text, pos, font: pgft.Font, fgcolor=pg.Color("black")):
 
 class HudSystem(BaseSystem):
     font: pgft.SysFont = None
-    app_fps = None
+    app_fps: float = 0.0
     spectrum_shape = None
     frequencies_shape = None
     times_shape = None
-    times_max = None
-    times_min = None
+    times_max: float = 0.
+    times_min: float = 0.
+    sample_rate: int = 0
     detected_classes: Sequence = []
 
     def init(self):
         self.font = pgft.SysFont(pgft.get_default_font(), size=12)
 
         evt_mgr = self.get_event_manager()
+        evt_mgr.add_listener("new_audio_data", self.receive_audio_data)
         evt_mgr.add_listener("new_app_fps", self.receive_app_fps)
         evt_mgr.add_listener("new_spectrogram_info", self.receive_spec_info)
         evt_mgr.add_listener("detected_classes", self.recev_detected_classes)
@@ -56,19 +58,33 @@ class HudSystem(BaseSystem):
         self.times_max = event["new_max_time"]
         self.times_min = event["new_min_time"]
 
+    def receive_audio_data(self, event_type, new_audio_data):
+        self.sample_rate = new_audio_data.rate
+
     def recev_detected_classes(self, event_type, detected_classes):
+        detected_classes = sorted(
+            detected_classes, key=lambda dc: dc["score"], reverse=True
+        )
         self.detected_classes = detected_classes
 
     def update(self, elapsed_time_ms: int) -> None:
         render_surface = self.get_app().window.window_surface
         txt_color = (0xFF, 0xFF, 0xFF)
+        offset_margin = 4
 
         fps_surface, fps_rect = self.font.render(
-            "FPS: {}".format(self.app_fps), fgcolor=txt_color
+            "FPS: {:.2f}".format(self.app_fps), fgcolor=txt_color
         )
         render_surface.blit(fps_surface, (0, 0))
 
-        y_offset = 10
+        y_offset = 10 + offset_margin
+
+        sample_rate_surface, sample_rate_rect = self.font.render(
+            "ORIGINAL SAMPLE RATE: {}".format(self.sample_rate), fgcolor=txt_color
+        )
+        render_surface.blit(sample_rate_surface, (0, y_offset))
+
+        y_offset += sample_rate_rect.height + offset_margin
 
         shapes_txt_surface, shapes_txt_rect = self.font.render(
             "SHAPES: Spectrum{}, Frequencies{}, Times{}".format(
@@ -78,19 +94,19 @@ class HudSystem(BaseSystem):
         )
         render_surface.blit(shapes_txt_surface, (0, y_offset))
 
-        y_offset += shapes_txt_rect.height
+        y_offset += shapes_txt_rect.height + offset_margin
 
         time_txt_surface, time_txt_rect = self.font.render(
-            "MAX TIME: {}, MIN TIME: {}".format(self.times_max, self.times_min),
+            "MAX TIME: {:.5f}, MIN TIME: {:.5f}".format(self.times_max, self.times_min),
             fgcolor=txt_color,
         )
         render_surface.blit(time_txt_surface, (0, y_offset))
 
-        y_offset += time_txt_rect.height
+        y_offset += time_txt_rect.height + offset_margin
 
         detected_classes_txt = "DETECTED:\n" + "\n".join(
             [
-                "{} ({})".format(dcls["label"], dcls["score"])
+                "{} ({:.3f})".format(dcls["label"], dcls["score"])
                 for dcls in self.detected_classes
             ]
         )
