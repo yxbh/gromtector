@@ -17,6 +17,14 @@ InputAudioDataEvent = namedtuple("InputAudioDataEvent", ["data", "rate"])
 
 
 class AudioFileSystem(BaseSystem):
+    pa = None
+    audio_out_stream = None
+    audio_file: AudioFile = None
+    file_playback_done: bool = True
+    read_write_thread: threading.Thread = None
+    audio_data_queue: queue.Queue = queue.Queue()
+    running: bool = False
+
     def init(self):
         input_file_path = self.config.get("--file", None)
         if not input_file_path:
@@ -30,7 +38,6 @@ class AudioFileSystem(BaseSystem):
             raise RuntimeError('Cannot locate audio file "{}"'.format(input_file_path))
 
         self.audio_file = AudioFile(file_path=self.config["--file"])
-        self.audio_data_queue = queue.Queue()
 
         self.pa = pa.PyAudio()
         self.audio_out_stream = self.pa.open(
@@ -42,26 +49,26 @@ class AudioFileSystem(BaseSystem):
             output=True,
         )
 
+        self.running = True
         self.file_playback_done = False
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.audio_out_stream.stop_stream()
         self.audio_out_stream.close()
         self.pa.terminate()
 
         self.running = False
 
+    def run(self) -> None:
+        self.read_write_thread = threading.Thread(
+            target=self.__class__.run_read_write_thread, args=(self,)
+        )
+        self.read_write_thread.start()
+
     def update(self, elapsed_time_ms: int) -> None:
         if self.file_playback_done:
             return
-
-        try:
-            aud_f_data = self.audio_file.read()
-            self.audio_out_stream.write(aud_f_data.data.tobytes())
-            self.audio_data_queue.put(aud_f_data)
-        except FilePlaybackFinished:
-            self.file_playback_done = True
-
+        
         dataset = []
         while not self.audio_data_queue.empty():
             dataset.append(self.audio_data_queue.get())
@@ -73,3 +80,16 @@ class AudioFileSystem(BaseSystem):
                     data=data, rate=self.audio_file.audio_segment.frame_rate
                 ),
             )
+
+    @classmethod
+    def run_read_write_thread(cls, system) -> None:
+        while system.running:
+            if system.file_playback_done:
+                break
+
+            try:
+                aud_f_data = system.audio_file.read()
+                system.audio_out_stream.write(aud_f_data.data.tobytes())
+                system.audio_data_queue.put(aud_f_data)
+            except FilePlaybackFinished:
+                system.file_playback_done = True

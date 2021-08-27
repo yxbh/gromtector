@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import threading
 import zipfile
@@ -5,6 +6,7 @@ from typing import Sequence
 import numpy as np
 import tensorflow as tf
 import audiosegment as ad
+from sklearn.preprocessing import minmax_scale
 
 from .BaseSystem import BaseSystem
 
@@ -74,21 +76,23 @@ class TfYamnetSystem(BaseSystem):
             self.raw_audio_buffer = temp[-self.model_sample_rate :]
 
     @classmethod
-    def run_inference_thread(cls, system):
+    def run_inference_thread(cls, system: TfYamnetSystem):
         while system.running:
             if not system.model or not system.model_labels:
                 logger.warning("Model not ready.")
                 continue
 
+            if not system.raw_audio_buffer:
+                continue
+
             interpreter = system.model
 
             pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
-            pcm_f32 = pcm_int16.astype(dtype=np.float32)
-
             num_samples = int(0.975 * system.model_sample_rate)
-            pcm_f32 = np.pad(pcm_f32, (0, num_samples - pcm_f32.size))
-            waveform = np.zeros(num_samples, dtype=np.float32)
-            waveform[0:num_samples] = pcm_f32[:num_samples]
+            waveform = np.pad(pcm_int16, (0, num_samples - pcm_int16.size))
+            waveform = waveform[:num_samples]
+            waveform = waveform.astype(np.float32)
+            waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
 
             # interpreter.resize_tensor_input(
             #     system.waveform_input_index, [waveform.size], strict=True
@@ -99,21 +103,29 @@ class TfYamnetSystem(BaseSystem):
             scores = interpreter.get_tensor(system.scores_output_index)
 
             top_class_index = scores.argmax()
-            top_5_results = tf.math.top_k(scores, k=5)
-            top_5_class_indices = top_5_results.indices[0].numpy()
-            top_5_class_probs = top_5_results.values[0].numpy()
+            top_results = tf.math.top_k(scores, k=10)
+            top_class_indices = top_results.indices[0].numpy()
+            top_class_probs = top_results.values[0].numpy()
             # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
             logger.debug(
                 "Detected: {}".format(
                     ", ".join(
                         [
-                            "{} ({})".format(
-                                system.model_labels[idx], scores[0][idx]
-                            )
-                            for idx in top_5_class_indices
+                            "{} ({})".format(system.model_labels[idx], scores[0][idx])
+                            for idx in top_class_indices
                         ]
                     )
                 )
+            )
+            system.get_event_manager().queue_event(
+                "detected_classes",
+                [
+                    {
+                        "label": system.model_labels[idx],
+                        "score": scores[0][idx],
+                    }
+                    for idx in top_class_indices
+                ],
             )
 
         logger.debug("Reaching the end of the model inference thread.")

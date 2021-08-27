@@ -6,3 +6,4 @@ pyAudio
 pygame
 scipy
 tensorflow
+scikit-learn
