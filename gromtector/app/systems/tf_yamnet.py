@@ -15,7 +15,7 @@ from .BaseSystem import BaseSystem
 logger = logging.getLogger(__name__)
 
 
-class TfYamnetSystem(BaseSystem):
+class TfYamnetLiteSystem(BaseSystem):
     """
     Reference: https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1
     """
@@ -49,13 +49,14 @@ class TfYamnetSystem(BaseSystem):
         interpreter.allocate_tensors()
         logger.debug("Setting model stuff up... DONE")
 
-        self.get_event_manager().add_listener("new_audio_data", self.recv_audio_data)
+        self.get_event_manager().add_listener("new_audio_data", self._recv_audio_data)
 
         self.running = True
 
     def shutdown(self):
         self.running = False
-        self.inference_thread.join()
+        if self.inference_thread is not None:
+            self.inference_thread.join()
 
     def run(self):
         self.inference_thread = threading.Thread(
@@ -63,7 +64,7 @@ class TfYamnetSystem(BaseSystem):
         )
         self.inference_thread.start()
 
-    def recv_audio_data(self, event_type, audio_event) -> None:
+    def _recv_audio_data(self, event_type, audio_event) -> None:
         audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
 
         # resample the audio to rate needed by the model.
@@ -77,7 +78,7 @@ class TfYamnetSystem(BaseSystem):
             self.raw_audio_buffer = temp[-self.model_sample_rate :]
 
     @classmethod
-    def run_inference_thread(cls, system: TfYamnetSystem):
+    def run_inference_thread(cls, system: TfYamnetLiteSystem):
         while system.running:
             if not system.model or not system.model_labels:
                 logger.warning("Model not ready.")
@@ -115,7 +116,9 @@ class TfYamnetSystem(BaseSystem):
                     (end - start),
                     ", ".join(
                         [
-                            "{} ({:.3f})".format(system.model_labels[idx], scores[0][idx])
+                            "{} ({:.3f})".format(
+                                system.model_labels[idx], scores[0][idx]
+                            )
                             for idx in top_class_indices
                         ]
                     ),
@@ -133,3 +136,157 @@ class TfYamnetSystem(BaseSystem):
             )
 
         logger.debug("Reaching the end of the model inference thread.")
+
+
+class TfYamnetSavedmodelSystem(BaseSystem):
+    running: bool = False
+    inference_thread: threading.Thread = None
+    model_sample_rate: int = 16000
+    model_path: str = None
+    model = None
+    model_labels: Sequence
+    raw_audio_buffer = b""
+
+    def init(self) -> None:
+        self.model_path = self.get_config().get("--tf-model", "model/")
+        logger.debug('Tensorflow model: "{}"'.format(self.model_path))
+        logger.debug("Loading model...")
+        self.model = tf.saved_model.load(self.model_path)
+        logger.debug("Loading model... DONE")
+
+        def class_names_from_csv(class_map_csv_text):
+            """Returns list of class names corresponding to score vector."""
+            import csv
+            import io
+
+            class_map_csv = io.StringIO(class_map_csv_text)
+            class_names = [
+                display_name
+                for (class_index, mid, display_name) in csv.reader(class_map_csv)
+            ]
+            class_names = class_names[1:]  # Skip CSV header
+            return class_names
+
+        class_map_path = self.model.class_map_path().numpy()
+        self.model_labels = class_names_from_csv(
+            tf.io.read_file(class_map_path).numpy().decode("utf-8")
+        )
+
+        self.get_event_manager().add_listener("new_audio_data", self._recv_audio_data)
+
+        self.running = True
+
+    def shutdown(self) -> None:
+        self.running = False
+        if self.inference_thread is not None:
+            self.inference_thread.join()
+
+    def run(self) -> None:
+        self.inference_thread = threading.Thread(
+            target=self.__class__.run_inference_thread, args=(self,)
+        )
+        self.inference_thread.start()
+
+    def _recv_audio_data(self, event_type, audio_event) -> None:
+        audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
+
+        # resample the audio to rate needed by the model.
+        resampled_audio_seg = audio_seg.resample(
+            sample_rate_Hz=16000, sample_width=2, channels=1
+        )
+        if self.raw_audio_buffer is None:
+            self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
+        else:
+            temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
+            self.raw_audio_buffer = temp[-self.model_sample_rate :]
+
+    @classmethod
+    def run_inference_thread(cls, system: TfYamnetSavedmodelSystem):
+        while system.running:
+            if not system.model or not system.model_labels:
+                logger.warning("Model not ready.")
+                continue
+
+            if not system.raw_audio_buffer:
+                continue
+
+            pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
+            num_samples = int(0.975 * system.model_sample_rate)
+            waveform = np.pad(pcm_int16, (0, num_samples - pcm_int16.size))
+            waveform = waveform.astype(np.float32)
+            waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
+
+            # Run the model, check the output.
+            start = time.time()
+            scores, embeddings, log_mel_spectrogram = system.model(waveform)
+            end = time.time()
+            scores.shape.assert_is_compatible_with([None, 521])
+            embeddings.shape.assert_is_compatible_with([None, 1024])
+            log_mel_spectrogram.shape.assert_is_compatible_with([None, 64])
+
+            top_results = tf.math.top_k(scores[0], k=10)
+            top_class_indices = top_results.indices.numpy()
+            top_class_probs = top_results.values.numpy()
+            # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
+            logger.debug(
+                "Detected (took {:.3f}s): {}".format(
+                    (end - start),
+                    ", ".join(
+                        [
+                            "{} ({:.3f})".format(
+                                system.model_labels[idx], scores[0][idx]
+                            )
+                            for idx in top_class_indices
+                        ]
+                    ),
+                )
+            )
+            system.get_event_manager().queue_event(
+                "detected_classes",
+                [
+                    {
+                        "label": system.model_labels[idx],
+                        "score": scores[0][idx],
+                    }
+                    for idx in top_class_indices
+                ],
+            )
+
+
+class TfYamnetSystem(BaseSystem):
+    """
+    A wrapper system that determines which Yamnet system to load base on configs.
+    """
+
+    _system: BaseSystem = None
+
+    def init(self) -> None:
+        model_path = self.get_config()["--tf-model"]
+        if model_path.endswith("tflite"):
+            self._system = TfYamnetLiteSystem(
+                app=self.get_app(), config=self.get_config()
+            )
+        else:
+            self._system = TfYamnetSavedmodelSystem(
+                app=self.get_app(), config=self.get_config()
+            )
+        return self._system.init()
+
+    def shutdown(self) -> None:
+        self._system.shutdown()
+
+    def recv_audio_data(self, event_type, audio_event) -> None:
+        audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
+
+        # resample the audio to rate needed by the model.
+        resampled_audio_seg = audio_seg.resample(
+            sample_rate_Hz=16000, sample_width=2, channels=1
+        )
+        if self.raw_audio_buffer is None:
+            self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
+        else:
+            temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
+            self.raw_audio_buffer = temp[-self.model_sample_rate :]
+
+    def run(self) -> None:
+        self._system.run()

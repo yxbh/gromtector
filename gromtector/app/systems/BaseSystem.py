@@ -4,7 +4,7 @@ from ..EventManager import EventManager
 from ..BaseApplication import BaseApplication
 
 class BaseSystem:
-    def __init__(self, app, config=None):
+    def __init__(self, app: BaseApplication, config: dict=None):
         if not app:
             raise RuntimeError("Where mah app?!")
         self.app = app

@@ -34,10 +34,11 @@ class HudSystem(BaseSystem):
     spectrum_shape = None
     frequencies_shape = None
     times_shape = None
-    times_max: float = 0.
-    times_min: float = 0.
+    times_max: float = 0.0
+    times_min: float = 0.0
     sample_rate: int = 0
     detected_classes: Sequence = []
+    score_thredshold: float = 0.05
 
     def init(self):
         self.font = pgft.SysFont(pgft.get_default_font(), size=12)
@@ -62,6 +63,9 @@ class HudSystem(BaseSystem):
         self.sample_rate = new_audio_data.rate
 
     def recev_detected_classes(self, event_type, detected_classes):
+        detected_classes = [
+            dc for dc in detected_classes if dc["score"] > self.score_thredshold
+        ]
         detected_classes = sorted(
             detected_classes, key=lambda dc: dc["score"], reverse=True
         )
