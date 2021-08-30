@@ -1,5 +1,6 @@
 import numpy as np
 import pygame as pg
+import matplotlib.cm as mplcm
 
 from .BaseSystem import BaseSystem
 
@@ -11,6 +12,15 @@ class SpectrogramGraphSystem(BaseSystem):
     palette = [(max((x - 128) * 2, 0), x, min(x * 2, 255)) for x in range(256)]
 
     def init(self):
+        configs = self.get_config()
+        palette_name = configs.get("--graph-palette", None)
+        if palette_name:
+            cmap = mplcm.get_cmap(palette_name.lower())
+            palette_norm = [cmap(x / 255) for x in range(256)]
+            self.palette = [
+                (int(r * 255), int(g * 255), int(b * 255)) for (r, g, b, a) in palette_norm
+            ]
+
         self.get_event_manager().add_listener("new_spectrogram", self.recv_spectrogram)
 
     def recv_spectrogram(self, event_type, spectrogram_data):
@@ -29,8 +39,8 @@ class SpectrogramGraphSystem(BaseSystem):
 
         data = np.rot90(self.Sxx, 3)
         # data = (data - data.min()) / (data.max() - data.min()) * 255  # dynamic min max linearly normalisation.
-        min = -40
-        max = 40
+        min = -60
+        max = 60
         data = (data - min) / (max - min) * 255
         np.clip(data, a_min=0, a_max=255, out=data)
         data = data.astype(dtype=np.uint8)

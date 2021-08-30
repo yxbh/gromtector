@@ -2,12 +2,13 @@
 gromtector
 
 Usage:
-  gromtector [--file=<INPUT_FILE>] [--tf-model=<MODEL_PATH>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
+  gromtector [--file=<INPUT_FILE>] [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
   gromtector -h | --help
 
 Options:
   --file=<INPUT_FILE>       Input audio/video file path.
   --tf-model=<MODEL_PATH>   Tensorflow audio classification model path.
+  --graph-palette=<GRAPH_PALETTE>  Optional palette name for graphs.
   --max-fps=<MAX_FPS>       Set the max app FPS [default: 60].
   --log-level=<log_lvl>     Logging level.
   -h --help                 Show this screen.
