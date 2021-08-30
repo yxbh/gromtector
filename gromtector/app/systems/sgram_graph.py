@@ -22,7 +22,9 @@ class SpectrogramGraphSystem(BaseSystem):
         if self.Sxx is None:
             return
 
-        self.specgram_surface = pg.Surface((self.Sxx.shape[1], self.Sxx.shape[0]), depth=8)
+        self.specgram_surface = pg.Surface(
+            (self.Sxx.shape[1], self.Sxx.shape[0]), depth=8
+        )
         self.specgram_surface.set_palette(self.palette)
 
         data = np.rot90(self.Sxx, 3)

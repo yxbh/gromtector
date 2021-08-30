@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import threading
 import os
@@ -13,7 +14,9 @@ from .BaseSystem import BaseSystem
 logger = logging.getLogger(__name__)
 
 
-InputAudioDataEvent = namedtuple("InputAudioDataEvent", ["data", "rate"])
+InputAudioDataEvent = namedtuple(
+    "InputAudioDataEvent", ["data", "rate", "begin_timestamp"]
+)
 
 
 class AudioFileSystem(BaseSystem):
@@ -68,16 +71,22 @@ class AudioFileSystem(BaseSystem):
     def update(self, elapsed_time_ms: int) -> None:
         if self.file_playback_done:
             return
-        
+
         dataset = []
+        dataset_utcbegin = None
         while not self.audio_data_queue.empty():
-            dataset.append(self.audio_data_queue.get())
+            audio_raw, utc_begin = self.audio_data_queue.get()
+            if not dataset_utcbegin:
+                dataset_utcbegin = utc_begin
+            dataset.append(audio_raw)
         if dataset:
             data = np.concatenate(dataset)
             self.get_event_manager().queue_event(
                 "new_audio_data",
                 InputAudioDataEvent(
-                    data=data, rate=self.audio_file.audio_segment.frame_rate
+                    data=data,
+                    rate=self.audio_file.audio_segment.frame_rate,
+                    begin_timestamp=dataset_utcbegin,
                 ),
             )
 
@@ -88,8 +97,9 @@ class AudioFileSystem(BaseSystem):
                 break
 
             try:
+                utcnow = datetime.utcnow()
                 aud_f_data = system.audio_file.read()
                 system.audio_out_stream.write(aud_f_data.data.tobytes())
-                system.audio_data_queue.put(aud_f_data)
+                system.audio_data_queue.put((aud_f_data, utcnow))
             except FilePlaybackFinished:
                 system.file_playback_done = True

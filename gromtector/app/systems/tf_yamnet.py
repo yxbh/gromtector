@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 import logging
 import threading
 import time
@@ -25,6 +26,7 @@ class TfYamnetLiteSystem(BaseSystem):
     model_sample_rate: int = 16000
     model_labels: Sequence[str] = None
     raw_audio_buffer = b""
+    raw_audio_utc_begin: datetime = None
     running: bool = False
     inference_thread: threading.Thread = None
 
@@ -65,6 +67,8 @@ class TfYamnetLiteSystem(BaseSystem):
         self.inference_thread.start()
 
     def _recv_audio_data(self, event_type, audio_event) -> None:
+        self.raw_audio_utc_begin = audio_event.begin_timestamp
+
         audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
 
         # resample the audio to rate needed by the model.
@@ -126,13 +130,16 @@ class TfYamnetLiteSystem(BaseSystem):
             )
             system.get_event_manager().queue_event(
                 "detected_classes",
-                [
-                    {
-                        "label": system.model_labels[idx],
-                        "score": scores[0][idx],
-                    }
-                    for idx in top_class_indices
-                ],
+                {
+                    "begin_timestamp": system.raw_audio_utc_begin,
+                    "classes": [
+                        {
+                            "label": system.model_labels[idx],
+                            "score": scores[0][idx],
+                        }
+                        for idx in top_class_indices
+                    ],
+                },
             )
 
         logger.debug("Reaching the end of the model inference thread.")
@@ -146,6 +153,9 @@ class TfYamnetSavedmodelSystem(BaseSystem):
     model = None
     model_labels: Sequence
     raw_audio_buffer = b""
+    raw_audio_utc_begin: datetime = None
+    sleep: bool = True
+    sleep_s: float = 0.1
 
     def init(self) -> None:
         self.model_path = self.get_config().get("--tf-model", "model/")
@@ -188,6 +198,8 @@ class TfYamnetSavedmodelSystem(BaseSystem):
         self.inference_thread.start()
 
     def _recv_audio_data(self, event_type, audio_event) -> None:
+        self.raw_audio_utc_begin = audio_event.begin_timestamp
+
         audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
 
         # resample the audio to rate needed by the model.
@@ -212,9 +224,18 @@ class TfYamnetSavedmodelSystem(BaseSystem):
 
             pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
             num_samples = int(0.975 * system.model_sample_rate)
-            waveform = np.pad(pcm_int16, (0, num_samples - pcm_int16.size))
+
+            # Pad the waveform to the model required sample length + 2 so we can
+            # add the integer min and max to make sure scaling is relative to the
+            # the type min/max.
+            waveform = np.pad(pcm_int16, (0, num_samples - pcm_int16.size + 2))
+            int16_iinfo = np.iinfo(np.int16)
+            waveform[-1] = int16_iinfo.max
+            waveform[-2] = int16_iinfo.min
+
             waveform = waveform.astype(np.float32)
             waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
+            waveform = waveform[:num_samples]
 
             # Run the model, check the output.
             start = time.time()
@@ -243,14 +264,20 @@ class TfYamnetSavedmodelSystem(BaseSystem):
             )
             system.get_event_manager().queue_event(
                 "detected_classes",
-                [
-                    {
-                        "label": system.model_labels[idx],
-                        "score": scores[0][idx],
-                    }
-                    for idx in top_class_indices
-                ],
+                {
+                    "begin_timestamp": system.raw_audio_utc_begin,
+                    "classes": [
+                        {
+                            "label": system.model_labels[idx],
+                            "score": scores[0][idx],
+                        }
+                        for idx in top_class_indices
+                    ],
+                },
             )
+
+            if system.sleep:
+                time.sleep(system.sleep_s)
 
 
 class TfYamnetSystem(BaseSystem):

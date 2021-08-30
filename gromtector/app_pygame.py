@@ -27,6 +27,7 @@ from gromtector.app.systems.spectrogram import SpectrogramSystem
 from gromtector.app.systems.sgram_graph import SpectrogramGraphSystem
 from gromtector.app.systems.hud import HudSystem
 from gromtector.app.systems.tf_yamnet import TfYamnetSystem
+from gromtector.app.systems.dog_audio_detection import DogAudioDetectionSystem
 
 from gromtector.logging import FORMAT
 
@@ -56,6 +57,7 @@ def main():
         DebugSystem,
         SpectrogramSystem,
         SpectrogramGraphSystem,
+        DogAudioDetectionSystem,
         HudSystem,
         TfYamnetSystem,
     ]

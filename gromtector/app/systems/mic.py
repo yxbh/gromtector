@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import threading
 import queue
@@ -11,7 +12,9 @@ from gromtector.audio_mic import AudioMic, CallbackAudioMic
 logger = logging.getLogger(__name__)
 
 
-InputAudioDataEvent = namedtuple("InputAudioDataEvent", ["data", "rate"])
+InputAudioDataEvent = namedtuple(
+    "InputAudioDataEvent", ["data", "rate", "begin_timestamp"]
+)
 
 
 class AudioMicSystem(BaseSystem):
@@ -28,15 +31,22 @@ class AudioMicSystem(BaseSystem):
         self.mic.close()
 
     def update(self, elapsed_time_ms: int) -> None:
-        # logger.debug(self.__class__)
         dataset = []
+        dataset_utcbegin = None
         while not self.audio_data_queue.empty():
-            dataset.append(self.audio_data_queue.get())
+            audio_raw, utc_begin = self.audio_data_queue.get()
+            if not dataset_utcbegin:
+                dataset_utcbegin = utc_begin
+            dataset.append(audio_raw)
         if dataset:
             data = np.concatenate(dataset)
             self.get_event_manager().queue_event(
                 "new_audio_data",
-                InputAudioDataEvent(data=data, rate=self.mic.sample_rate),
+                InputAudioDataEvent(
+                    data=data,
+                    rate=self.mic.sample_rate,
+                    begin_timestamp=dataset_utcbegin,
+                ),
             )
         pass
 
@@ -58,9 +68,10 @@ class AudioMicSystem(BaseSystem):
             if hasattr(system.mic, "buffer") and not system.mic.buffer:
                 continue
 
+            utcnow = datetime.utcnow()
             data = system.mic.read()
             if data.size:
-                system.audio_data_queue.put(data)
+                system.audio_data_queue.put((data, utcnow))
 
             # logger.debug("Just read {} bytes of audio data.".format(len(data)))
 

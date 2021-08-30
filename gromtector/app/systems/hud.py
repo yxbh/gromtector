@@ -1,10 +1,13 @@
-from typing import Sequence
+from datetime import datetime
+from typing import Sequence, Tuple
 from .BaseSystem import BaseSystem
 import pygame as pg
 import pygame.freetype as pgft
 
 
-def blit_text(surface, text, pos, font: pgft.Font, fgcolor=pg.Color("black")):
+def blit_text(
+    surface: pg.Surface, text: str, pos: Tuple[int, int], font: pgft.Font
+) -> pg.Rect:
     words = [
         word.split(" ") for word in text.splitlines()
     ]  # 2D array where each row is a list of words.
@@ -13,9 +16,10 @@ def blit_text(surface, text, pos, font: pgft.Font, fgcolor=pg.Color("black")):
     # space = font.size(" ")[0]  # The width of a space.
     max_width, max_height = surface.get_size()
     x, y = pos
+    text_surface_width = 0
     for line in words:
         for word in line:
-            word_surface, word_rect = font.render(word, fgcolor=fgcolor)
+            word_surface, word_rect = font.render(word)
             # word_width, word_height = word_surface.get_size()
             word_width = word_rect.width
             word_height = word_rect.height
@@ -24,12 +28,19 @@ def blit_text(surface, text, pos, font: pgft.Font, fgcolor=pg.Color("black")):
                 y += word_height  # Start on new row.
             surface.blit(word_surface, (x, y))
             x += word_width + space
+        text_surface_width = max(x, text_surface_width)
         x = pos[0]  # Reset the x.
         y += word_height  # Start on new row.
+        y += 1  # TODO: temp padding for testing.
+
+    return pg.Rect(pos, (text_surface_width, y))
 
 
 class HudSystem(BaseSystem):
     font: pgft.SysFont = None
+    default_font_size: int = 12
+    dog_audio_status_font = None
+
     app_fps: float = 0.0
     spectrum_shape = None
     frequencies_shape = None
@@ -37,17 +48,32 @@ class HudSystem(BaseSystem):
     times_max: float = 0.0
     times_min: float = 0.0
     sample_rate: int = 0
+
     detected_classes: Sequence = []
     score_thredshold: float = 0.05
 
+    dog_audio_active: bool = False
+    latest_event_dogbark_begin: datetime = None
+    latest_event_dogbark_end: datetime = None
+
     def init(self):
-        self.font = pgft.SysFont(pgft.get_default_font(), size=12)
+        txt_color = (0xFF, 0xFF, 0xFF)
+        self.font = pgft.SysFont(pgft.get_default_font(), size=self.default_font_size)
+        self.font.fgcolor = txt_color
+        self.dog_audio_status_font = pgft.SysFont(
+            pgft.get_default_font(), size=self.default_font_size + 3, bold=True
+        )
+        self.dog_audio_status_font.fgcolor = txt_color
+        self.dog_audio_status_font.pad = True
 
         evt_mgr = self.get_event_manager()
         evt_mgr.add_listener("new_audio_data", self.receive_audio_data)
         evt_mgr.add_listener("new_app_fps", self.receive_app_fps)
         evt_mgr.add_listener("new_spectrogram_info", self.receive_spec_info)
         evt_mgr.add_listener("detected_classes", self.recev_detected_classes)
+        evt_mgr.add_listener("dog_audio_begin", self.recv_dog_audio_detected)
+        evt_mgr.add_listener("dog_audio_end", self.recv_dog_audio_detected)
+        evt_mgr.add_listener("audio_event_dogbark", self.recv_highlvl_audio_evt)
 
     def receive_app_fps(self, event_type, event):
         self.app_fps = event
@@ -62,7 +88,8 @@ class HudSystem(BaseSystem):
     def receive_audio_data(self, event_type, new_audio_data):
         self.sample_rate = new_audio_data.rate
 
-    def recev_detected_classes(self, event_type, detected_classes):
+    def recev_detected_classes(self, event_type, event):
+        detected_classes = event["classes"]
         detected_classes = [
             dc for dc in detected_classes if dc["score"] > self.score_thredshold
         ]
@@ -71,65 +98,79 @@ class HudSystem(BaseSystem):
         )
         self.detected_classes = detected_classes
 
+    def recv_dog_audio_detected(self, event_type, evt):
+        self.dog_audio_active = event_type == "dog_audio_begin"
+
+    def recv_highlvl_audio_evt(self, event_type, evt: dict):
+        if event_type == "audio_event_dogbark":
+            self.latest_event_dogbark_begin = evt["begin_timestamp"]
+            self.latest_event_dogbark_end = evt["end_timestamp"]
+
     def update(self, elapsed_time_ms: int) -> None:
         render_surface = self.get_app().window.window_surface
-        txt_color = (0xFF, 0xFF, 0xFF)
         offset_margin = 4
 
-        fps_surface, fps_rect = self.font.render(
-            "FPS: {:.2f}".format(self.app_fps), fgcolor=txt_color
+        fps_rect = self.font.render_to(
+            surf=render_surface,
+            dest=(0, 0),
+            text="FPS: {:.2f}  ORIGINAL SAMPLE RATE: {}".format(
+                self.app_fps, self.sample_rate
+            ),
         )
-        render_surface.blit(fps_surface, (0, 0))
 
         y_offset = 10 + offset_margin
-
-        sample_rate_surface, sample_rate_rect = self.font.render(
-            "ORIGINAL SAMPLE RATE: {}".format(self.sample_rate), fgcolor=txt_color
-        )
-        render_surface.blit(sample_rate_surface, (0, y_offset))
-
-        y_offset += sample_rate_rect.height + offset_margin
-
-        shapes_txt_surface, shapes_txt_rect = self.font.render(
-            "SHAPES: Spectrum{}, Frequencies{}, Times{}".format(
-                self.spectrum_shape, self.frequencies_shape, self.times_shape
+        # y_offset = fps_rect.height + offset_margin
+        shapes_txt_rect = self.font.render_to(
+            surf=render_surface,
+            dest=(0, y_offset),
+            text="SHAPES: Spectrum{}, Frequencies{}, Times{}, MAX TIME: {:.5f}, MIN TIME: {:.5f}".format(
+                self.spectrum_shape,
+                self.frequencies_shape,
+                self.times_shape,
+                self.times_max,
+                self.times_min,
             ),
-            fgcolor=txt_color,
         )
-        render_surface.blit(shapes_txt_surface, (0, y_offset))
 
         y_offset += shapes_txt_rect.height + offset_margin
-
-        time_txt_surface, time_txt_rect = self.font.render(
-            "MAX TIME: {:.5f}, MIN TIME: {:.5f}".format(self.times_max, self.times_min),
-            fgcolor=txt_color,
-        )
-        render_surface.blit(time_txt_surface, (0, y_offset))
-
-        y_offset += time_txt_rect.height + offset_margin
-
-        detected_classes_txt = "DETECTED:\n" + "\n".join(
+        detected_classes_txt = "TOP DETECTED:\n" + "\n".join(
             [
                 "{} ({:.3f})".format(dcls["label"], dcls["score"])
                 for dcls in self.detected_classes
             ]
         )
-        blit_text(
+        detected_clses_rect = blit_text(
             render_surface,
             detected_classes_txt,
             (0, y_offset),
             self.font,
-            fgcolor=txt_color,
         )
 
-        # classes_surface, classes_rect = self.font.render(
-        #     "DETECTED:\n"
-        #     + "\n".join(
-        #         [
-        #             "{} ({})".format(dcls["label"], dcls["score"])
-        #             for dcls in self.detected_classes
-        #         ]
-        #     ),
-        #     fgcolor=txt_color,
-        # )
-        # render_surface.blit(classes_surface, (0, y_offset))
+        x_offset = 130
+        if self.dog_audio_active:
+            dog_aud_rect = self.dog_audio_status_font.render_to(
+                surf=render_surface,
+                dest=(x_offset, y_offset),
+                text="DOG AUDIO ACTIVE".format(self.times_max, self.times_min),
+                bgcolor="red",
+            )
+        else:
+            dog_aud_rect = self.dog_audio_status_font.render_to(
+                surf=render_surface,
+                dest=(x_offset, y_offset),
+                text="DOG AUDIO INACTIVE".format(self.times_max, self.times_min),
+                bgcolor="dark green",
+            )
+
+        # dog_aud_rect.y += dog_aud_rect.height + offset_margin
+        if self.latest_event_dogbark_begin and self.latest_event_dogbark_end:
+            # DT_FORMAT =
+            blit_text(
+                render_surface,
+                "LAST:\n{}\n{}".format(
+                    self.latest_event_dogbark_begin.astimezone(tz=None),
+                    self.latest_event_dogbark_end.astimezone(tz=None),
+                ),
+                (dog_aud_rect.left + 200, dog_aud_rect.top),
+                self.font,
+            )
