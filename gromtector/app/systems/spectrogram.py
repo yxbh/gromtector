@@ -14,9 +14,12 @@ class SpectrogramSystem(BaseSystem):
     sample_interval_to_keep_s: float = 2.0
 
     def init(self):
-        self.get_event_manager().add_listener(
-            "new_audio_data", self.receive_audio_data
-        )
+        evt_mgr = self.get_event_manager()
+        evt_mgr.add_listener("new_audio_data", self.receive_audio_data)
+        evt_mgr.add_listener("input_audio_data_ended", self.handle_input_audio_ended)
+
+    def handle_input_audio_ended(self, event_type, evt):
+        self.audio_data_buffer = None
 
     def receive_audio_data(self, event_type, audio_mic_evt):
         self.sample_rate = audio_mic_evt.rate
@@ -36,11 +39,12 @@ class SpectrogramSystem(BaseSystem):
             return
 
         # logger.debug("{}ms elapsed.".format(elapsed_time_ms))
+        nfft = 512
+        noverlap = nfft // 2
         Sxx, freqs, times = get_spectrogram(
             signal=self.audio_data_buffer,
             rate=self.sample_rate,
             mod_spec=True,
-            nfft=512,
         )
         self.get_event_manager().queue_event(
             "new_spectrogram_info",

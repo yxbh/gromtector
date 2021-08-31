@@ -3,6 +3,7 @@ gromtector
 
 Usage:
   gromtector [--file=<INPUT_FILE>] [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
+  gromtector extract <AUDIO_PATH> [--log-level=<log_lvl>]
   gromtector -h | --help
 
 Options:
@@ -30,6 +31,8 @@ from gromtector.app.systems.hud import HudSystem
 from gromtector.app.systems.tf_yamnet import TfYamnetSystem
 from gromtector.app.systems.dog_audio_detection import DogAudioDetectionSystem
 
+from gromtector.audio_extract import extract_audio_inplace
+
 from gromtector.logging import FORMAT
 
 logging.basicConfig(format=FORMAT)
@@ -46,27 +49,31 @@ def main():
 
     logger.debug("Hello World")
 
-    if cli_params["--file"]:
-        system_classes = [
-            AudioFileSystem,
-        ]
+    if cli_params["extract"]:
+        extract_audio_inplace(cli_params)
+    
     else:
-        system_classes = [
-            AudioMicSystem,
+        if cli_params["--file"]:
+            system_classes = [
+                AudioFileSystem,
+            ]
+        else:
+            system_classes = [
+                AudioMicSystem,
+            ]
+        system_classes += [
+            DebugSystem,
+            SpectrogramSystem,
+            SpectrogramGraphSystem,
+            DogAudioDetectionSystem,
+            HudSystem,
+            TfYamnetSystem,
         ]
-    system_classes += [
-        DebugSystem,
-        SpectrogramSystem,
-        SpectrogramGraphSystem,
-        DogAudioDetectionSystem,
-        HudSystem,
-        TfYamnetSystem,
-    ]
 
-    app = Application(
-        args=cli_params,
-        system_classes=system_classes,
-    )
-    app.run()
+        app = Application(
+            args=cli_params,
+            system_classes=system_classes,
+        )
+        app.run()
 
     logger.debug("Bye World")

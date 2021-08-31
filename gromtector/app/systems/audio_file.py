@@ -26,7 +26,9 @@ class AudioFileSystem(BaseSystem):
     file_playback_done: bool = True
     read_write_thread: threading.Thread = None
     audio_data_queue: queue.Queue = queue.Queue()
+
     running: bool = False
+    read_write_thread: threading.Thread = None
 
     def init(self):
         input_file_path = self.config.get("--file", None)
@@ -56,11 +58,13 @@ class AudioFileSystem(BaseSystem):
         self.file_playback_done = False
 
     def shutdown(self) -> None:
+        self.running = False
+
+        self.read_write_thread.join()
         self.audio_out_stream.stop_stream()
         self.audio_out_stream.close()
         self.pa.terminate()
 
-        self.running = False
 
     def run(self) -> None:
         self.read_write_thread = threading.Thread(
@@ -72,16 +76,21 @@ class AudioFileSystem(BaseSystem):
         if self.file_playback_done:
             return
 
+        evt_mgr = self.get_event_manager()
         dataset = []
         dataset_utcbegin = None
         while not self.audio_data_queue.empty():
-            audio_raw, utc_begin = self.audio_data_queue.get()
+            audio_data_pack = self.audio_data_queue.get()
+            if audio_data_pack is None:
+                # Audio ended.
+                evt_mgr.queue_event("input_audio_data_ended", None)
+            audio_raw, utc_begin = audio_data_pack
             if not dataset_utcbegin:
                 dataset_utcbegin = utc_begin
             dataset.append(audio_raw)
         if dataset:
             data = np.concatenate(dataset)
-            self.get_event_manager().queue_event(
+            evt_mgr.queue_event(
                 "new_audio_data",
                 InputAudioDataEvent(
                     data=data,
@@ -103,3 +112,4 @@ class AudioFileSystem(BaseSystem):
                 system.audio_data_queue.put((aud_f_data, utcnow))
             except FilePlaybackFinished:
                 system.file_playback_done = True
+                system.audio_data_queue.put(None)  # Empty to signal end.

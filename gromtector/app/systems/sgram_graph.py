@@ -32,10 +32,10 @@ class SpectrogramGraphSystem(BaseSystem):
         if self.Sxx is None:
             return
 
-        self.specgram_surface = pg.Surface(
+        target_surface = pg.Surface(
             (self.Sxx.shape[1], self.Sxx.shape[0]), depth=8
         )
-        self.specgram_surface.set_palette(self.palette)
+        target_surface.set_palette(self.palette)
 
         data = np.rot90(self.Sxx, 3)
         # data = (data - data.min()) / (data.max() - data.min()) * 255  # dynamic min max linearly normalisation.
@@ -45,7 +45,13 @@ class SpectrogramGraphSystem(BaseSystem):
         np.clip(data, a_min=0, a_max=255, out=data)
         data = data.astype(dtype=np.uint8)
 
-        pg.surfarray.blit_array(self.specgram_surface, data)
-        target_surface = pg.transform.scale2x(self.specgram_surface)
+        pg.surfarray.blit_array(target_surface, data)
+
         render_surface = self.get_app().window.window_surface
+        # target_surface = pg.transform.scale2x(target_surface)
+        target_surface = pg.transform.scale(
+            target_surface,
+            (render_surface.get_width(), render_surface.get_height()),
+        )
+        
         render_surface.blit(target_surface, (0, 0))

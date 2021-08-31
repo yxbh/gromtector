@@ -4,12 +4,11 @@ from .BaseSystem import BaseSystem
 
 _CLASSES_OF_INTEREST = [
     "Dog",
-    "dogs",
-    "canidae",
+    "Canidae, dogs, wolves",
     "Domestic animals",
     "Wild animals",
+    "Livestock, farm animals, working animals",
     "pets",
-    "wolves",
     "Animal",
     "Bark",
     "Whimper (dog)",
@@ -33,21 +32,21 @@ class DogAudioDetectionSystem(BaseSystem):
     def recv_dclasses(self, event_type, event) -> None:
 
         detected_classes = event["classes"]
-        for cls_ in detected_classes:
-            cls_lbl = cls_["label"].lower()
-            if cls_lbl in CLASSES_OF_INTEREST:
-                if not self.dog_audio_detected:
-                    self.detection_begin_timestamp = event["begin_timestamp"]
-                    self.detection_end_timestamp = None
+        detected_dog_classes = [c for c in detected_classes if c["label"].lower() in CLASSES_OF_INTEREST]
+        if len(detected_dog_classes) > 2:
+            if not self.dog_audio_detected:
+                self.detection_begin_timestamp = event["begin_timestamp"]
+                self.detection_end_timestamp = None
 
-                self.dog_audio_detected = True
+            self.dog_audio_detected = True
+
+        else:
+            if self.dog_audio_detected:
+                self.detection_end_timestamp = datetime.utcnow()
             else:
-                if self.dog_audio_detected:
-                    self.detection_end_timestamp = datetime.utcnow()
-                else:
-                    self.detection_begin_timestamp = None
+                self.detection_begin_timestamp = None
 
-                self.dog_audio_detected = False
+            self.dog_audio_detected = False
 
     def update(self, elapsed_time_ms: int) -> None:
         evt_mgr = self.get_event_manager()
