@@ -2,18 +2,22 @@
 gromtector
 
 Usage:
-  gromtector [--file=<INPUT_FILE>] [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
+  gromtector [--file=<INPUT_FILE>]  [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--bark-response-audio=<BARKRA> --bark-notify-email=<BARKNE> --gmail-app-pw=<GMAIL_PW>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
   gromtector extract <AUDIO_PATH> [--log-level=<log_lvl>]
   gromtector -h | --help
 
 Options:
-  --file=<INPUT_FILE>       Input audio/video file path.
+  --file=<INPUT_FILE>       Input audio/video file path. The app runs on the input file instead of streaming audio from a live mic.
   --tf-model=<MODEL_PATH>   Tensorflow audio classification model path.
-  --graph-palette=<GRAPH_PALETTE>  Optional palette name for graphs.
+  --graph-palette=<GRAPH_PALETTE>   Optional palette name for graphs.
+  --bark-response-audio=<BARKRA>    The audio to playback when Gromit's barking is detected.
+  --bark-notify-email=<BARKNE>      Email address to send email when Gromit's barking is detected.
+  --gmail-app-pw=<GMAIL_PW>         Gmail app password for sending email notifications.
   --max-fps=<MAX_FPS>       Set the max app FPS [default: 60].
   --log-level=<log_lvl>     Logging level.
   -h --help                 Show this screen.
 """
+
 import logging
 import os
 import platform
