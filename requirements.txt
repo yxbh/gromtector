@@ -3,7 +3,9 @@ docopt
 matplotlib
 numpy
 pyAudio
+pydub
 pygame
 scipy
 tensorflow
 scikit-learn
+simpleaudio

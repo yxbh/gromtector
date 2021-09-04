@@ -30,6 +30,7 @@ from gromtector.app.systems.sgram_graph import SpectrogramGraphSystem
 from gromtector.app.systems.hud import HudSystem
 from gromtector.app.systems.tf_yamnet import TfYamnetSystem
 from gromtector.app.systems.dog_audio_detection import DogAudioDetectionSystem
+from gromtector.app.systems.bark_react import BarkReactSystem
 
 from gromtector.audio_extract import extract_audio_inplace
 
@@ -66,6 +67,7 @@ def main():
             SpectrogramSystem,
             SpectrogramGraphSystem,
             DogAudioDetectionSystem,
+            BarkReactSystem,
             HudSystem,
             TfYamnetSystem,
         ]

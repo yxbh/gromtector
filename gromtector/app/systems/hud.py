@@ -71,8 +71,8 @@ class HudSystem(BaseSystem):
         evt_mgr.add_listener("new_app_fps", self.receive_app_fps)
         evt_mgr.add_listener("new_spectrogram_info", self.receive_spec_info)
         evt_mgr.add_listener("detected_classes", self.recev_detected_classes)
-        evt_mgr.add_listener("dog_audio_begin", self.recv_dog_audio_detected)
-        evt_mgr.add_listener("dog_audio_end", self.recv_dog_audio_detected)
+        evt_mgr.add_listener("dog_bark_begin", self.recv_dog_bark_detected)
+        evt_mgr.add_listener("dog_bark_end", self.recv_dog_bark_detected)
         evt_mgr.add_listener("audio_event_dogbark", self.recv_highlvl_audio_evt)
 
     def receive_app_fps(self, event_type, event):
@@ -98,8 +98,8 @@ class HudSystem(BaseSystem):
         )
         self.detected_classes = detected_classes
 
-    def recv_dog_audio_detected(self, event_type, evt):
-        self.dog_audio_active = event_type == "dog_audio_begin"
+    def recv_dog_bark_detected(self, event_type, evt):
+        self.dog_audio_active = event_type == "dog_bark_begin"
 
     def recv_highlvl_audio_evt(self, event_type, evt: dict):
         if event_type == "audio_event_dogbark":
