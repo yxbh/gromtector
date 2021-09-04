@@ -2,13 +2,7 @@ from datetime import datetime
 from .BaseSystem import BaseSystem
 
 
-_CLASSES_OF_INTEREST = [
-    "Dog",
-    "Canidae, dogs, wolves",
-    "Domestic animals, pets",
-    "Wild animals",
-    "Livestock, farm animals, working animals",
-    "Animal",
+_DOG_NOISE_OF_INTEREST = [
     "Bark",
     "Whimper (dog)",
     "Growling",
@@ -16,7 +10,17 @@ _CLASSES_OF_INTEREST = [
     "Yip",
 ]
 
+_CLASSES_OF_INTEREST = [
+    "Dog",
+    "Canidae, dogs, wolves",
+    "Domestic animals, pets",
+    "Wild animals",
+    "Livestock, farm animals, working animals",
+    "Animal",
+] + _DOG_NOISE_OF_INTEREST
+
 CLASSES_OF_INTEREST = [s.lower() for s in _CLASSES_OF_INTEREST]
+DOG_NOISE_OF_INTEREST = [s.lower() for s in _DOG_NOISE_OF_INTEREST]
 
 
 class DogAudioDetectionSystem(BaseSystem):
@@ -37,8 +41,10 @@ class DogAudioDetectionSystem(BaseSystem):
         ]
         detected_dog_classes = [c for c in detected_dog_classes if c["score"] > 0.5]
         detected_lbls = [c["label"] for c in detected_dog_classes]
-        dog_bark_detected = len(detected_dog_classes) > 2
-        if dog_bark_detected and "Bark" in detected_lbls:
+        detected_dog_noise_classes = [
+            l for l in detected_lbls if l.lower() in DOG_NOISE_OF_INTEREST
+        ]
+        if len(detected_dog_classes) > 2 and detected_dog_noise_classes:
             self.raw_detection_end_timestamp = None
             if self.raw_detection_begin_timestamp is None:
                 self.raw_detection_begin_timestamp = event["begin_timestamp"]
