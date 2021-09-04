@@ -78,7 +78,8 @@ class BarkReactSystem(BaseSystem):
     def run_email_thread(cls, system: BarkReactSystem) -> None:
         while system.running:
             if system.dogbark_events.empty():
-                time.sleep(0.2)
+                time.sleep(1)
+                continue
 
             server_ssl = smtplib.SMTP_SSL("smtp.gmail.com", 465)
             server_ssl.ehlo() # optional, called by login()
