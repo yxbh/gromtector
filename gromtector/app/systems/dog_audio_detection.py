@@ -35,9 +35,10 @@ class DogAudioDetectionSystem(BaseSystem):
         detected_dog_classes = [
             c for c in detected_classes if c["label"].lower() in CLASSES_OF_INTEREST
         ]
-        detected_dog_classes = [c for c in detected_dog_classes if c["score"] > 0.4]
+        detected_dog_classes = [c for c in detected_dog_classes if c["score"] > 0.5]
+        detected_lbls = [c["label"] for c in detected_dog_classes]
         dog_bark_detected = len(detected_dog_classes) > 2
-        if dog_bark_detected:
+        if dog_bark_detected and "Bark" in detected_lbls:
             self.raw_detection_end_timestamp = None
             if self.raw_detection_begin_timestamp is None:
                 self.raw_detection_begin_timestamp = event["begin_timestamp"]
