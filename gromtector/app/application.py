@@ -27,7 +27,7 @@ class Application(BaseApplication):
 
         self.args = args
 
-        self.window = Window(width=1100, height=700)
+        self.window = Window(width=900, height=400)
         self.running = True
 
         self.clock = pg.time.Clock()
