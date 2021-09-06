@@ -56,7 +56,11 @@ class HudSystem(BaseSystem):
     latest_event_dogbark_begin: datetime = None
     latest_event_dogbark_end: datetime = None
 
+    last_trigger_classes: Sequence = None  # classes that triggered the dog/bark detected event.
+
     def init(self):
+        self.last_trigger_classes = []
+
         txt_color = (0xFF, 0xFF, 0xFF)
         self.font = pgft.SysFont(pgft.get_default_font(), size=self.default_font_size)
         self.font.fgcolor = txt_color
@@ -100,6 +104,8 @@ class HudSystem(BaseSystem):
 
     def recv_dog_bark_detected(self, event_type, evt):
         self.dog_audio_active = event_type == "dog_bark_begin"
+        if event_type == "dog_bark_begin":
+            self.last_trigger_classes = evt["detected_classes"]
 
     def recv_highlvl_audio_evt(self, event_type, evt: dict):
         if event_type == "audio_event_dogbark":
@@ -164,12 +170,22 @@ class HudSystem(BaseSystem):
 
         # dog_aud_rect.y += dog_aud_rect.height + offset_margin
         if self.latest_event_dogbark_begin and self.latest_event_dogbark_end:
+            trigger_classes_txt = ""
+            if self.last_trigger_classes:
+                trigger_classes_txt = "Trigger classes:\n" + "\n".join(
+                    [
+                        "{} ({:.3f})".format(dcls["label"], dcls["score"])
+                        for dcls in self.last_trigger_classes
+                    ]
+                )
+
             # DT_FORMAT =
             blit_text(
                 render_surface,
-                "LAST:\n{}\n{}".format(
+                "LAST:\n{}\n{}\n{}".format(
                     self.latest_event_dogbark_begin.astimezone(tz=None),
                     self.latest_event_dogbark_end.astimezone(tz=None),
+                    trigger_classes_txt,
                 ),
                 (dog_aud_rect.left + 200, dog_aud_rect.top),
                 self.font,

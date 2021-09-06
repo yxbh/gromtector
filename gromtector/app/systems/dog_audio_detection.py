@@ -53,6 +53,7 @@ class DogAudioDetectionSystem(BaseSystem):
                     "dog_bark_begin",
                     {
                         "begin_timestamp": self.raw_detection_begin_timestamp,
+                        "detected_classes": detected_dog_classes,
                     },
                 )
             else:
