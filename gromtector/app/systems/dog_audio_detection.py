@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Sequence
 from .BaseSystem import BaseSystem
 
 
@@ -30,6 +31,7 @@ class DogAudioDetectionSystem(BaseSystem):
     raw_detection_begin_timestamp: datetime = None
     raw_detection_end_timestamp: datetime = None
     last_raw_bark_end_timestamp: datetime = None
+    initial_trigger_classes: Sequence = None
 
     def init(self) -> None:
         evt_mgr = self.get_event_manager()
@@ -53,13 +55,15 @@ class DogAudioDetectionSystem(BaseSystem):
             self.raw_detection_end_timestamp = None
             if self.raw_detection_begin_timestamp is None:
                 self.raw_detection_begin_timestamp = event["begin_timestamp"]
+                self.initial_trigger_classes = (
+                    detected_dog_classes + detected_dog_noise_classes
+                )
 
                 evt_mgr.queue_event(
                     "dog_bark_begin",
                     {
                         "begin_timestamp": self.raw_detection_begin_timestamp,
-                        "detected_classes": detected_dog_classes
-                        + detected_dog_noise_classes,
+                        "detected_classes": self.initial_trigger_classes,
                     },
                 )
             else:
@@ -89,6 +93,7 @@ class DogAudioDetectionSystem(BaseSystem):
                     {
                         "begin_timestamp": self.raw_detection_begin_timestamp,
                         "end_timestamp": self.raw_detection_end_timestamp,
+                        "trigger_classes": self.initial_trigger_classes,
                     },
                 )
 
@@ -102,3 +107,4 @@ class DogAudioDetectionSystem(BaseSystem):
                 self.last_raw_bark_end_timestamp = None
                 self.raw_detection_begin_timestamp = None
                 self.raw_detection_end_timestamp = None
+                self.initial_trigger_classes = None

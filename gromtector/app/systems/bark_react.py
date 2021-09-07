@@ -91,12 +91,13 @@ class BarkReactSystem(BaseSystem):
                 email_subject = "Gromtector: Gromit barking detected"
                 email_from = system.bark_notify_email
                 email_to = system.bark_notify_email
-                email_msg = "From: {}\nTo: {}\nSubject: {}\n\nGromit barking detected: {} - {}".format(
+                email_msg = "From: {}\nTo: {}\nSubject: {}\n\nGromit barking detected: {} - {}\n\nTrigger classes:\n{}".format(
                     email_from,
                     email_to,
                     email_subject,
                     event["begin_timestamp"],
-                    event["end_timestamp"]
+                    event["end_timestamp"],
+                    "\n".join([f'"{cl["label"]}": {cl["score"]}' for cl in event["trigger_classes"]]),
                 )
                 # ssl server doesn't support or need tls, so don't call server_ssl.starttls() 
                 server_ssl.sendmail(email_from, [email_to], email_msg)
