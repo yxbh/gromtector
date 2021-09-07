@@ -56,7 +56,9 @@ class HudSystem(BaseSystem):
     latest_event_dogbark_begin: datetime = None
     latest_event_dogbark_end: datetime = None
 
-    last_trigger_classes: Sequence = None  # classes that triggered the dog/bark detected event.
+    last_trigger_classes: Sequence = (
+        None  # classes that triggered the dog/bark detected event.
+    )
 
     def init(self):
         self.last_trigger_classes = []

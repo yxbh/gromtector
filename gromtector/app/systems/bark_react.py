@@ -42,6 +42,8 @@ class BarkReactSystem(BaseSystem):
             self.clip = AudioSegment.from_file(self.bark_response_playback_path)
         else:
             self.clip = AudioSegment.from_file("samples/voice_clip_goodboy.m4a")
+        if self.clip is not None:
+            self.clip.apply_gain(+20.0)
 
         self.dogbark_events = queue.Queue()
         self.running = True
@@ -95,8 +97,8 @@ class BarkReactSystem(BaseSystem):
                     email_from,
                     email_to,
                     email_subject,
-                    event["begin_timestamp"],
-                    event["end_timestamp"],
+                    event["begin_timestamp"].astimezone(tz=None),
+                    event["end_timestamp"].astimezone(tz=None),
                     "\n".join([f'"{cl["label"]}": {cl["score"]}' for cl in event["trigger_classes"]]),
                 )
                 # ssl server doesn't support or need tls, so don't call server_ssl.starttls() 

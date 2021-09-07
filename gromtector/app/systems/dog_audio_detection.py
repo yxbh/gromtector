@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 from .BaseSystem import BaseSystem
 
@@ -82,7 +82,7 @@ class DogAudioDetectionSystem(BaseSystem):
         evt_mgr = self.get_event_manager()
 
         if self.last_raw_bark_end_timestamp is not None:
-            now = datetime.utcnow()
+            now = datetime.now(tz=timezone.utc)
             dur_since_last_raw_bark_end = now - self.last_raw_bark_end_timestamp
             wait_s = 1.0
             if dur_since_last_raw_bark_end.seconds >= wait_s:
