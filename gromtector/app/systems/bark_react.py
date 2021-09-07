@@ -88,7 +88,7 @@ class BarkReactSystem(BaseSystem):
             while not system.dogbark_events.empty():
                 event = system.dogbark_events.get()
 
-                email_subject = "Gromit barking detected"
+                email_subject = "Gromtector: Gromit barking detected"
                 email_from = system.bark_notify_email
                 email_to = system.bark_notify_email
                 email_msg = "From: {}\nTo: {}\nSubject: {}\n\nGromit barking detected: {} - {}".format(

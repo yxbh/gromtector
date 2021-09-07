@@ -10,16 +10,19 @@ _DOG_NOISE_OF_INTEREST = [
     "Yip",
 ]
 
-_CLASSES_OF_INTEREST = [
+_ANIMAL_CLASSES_OF_INTEREST = [
     "Dog",
     "Canidae, dogs, wolves",
     "Domestic animals, pets",
     "Wild animals",
     "Livestock, farm animals, working animals",
     "Animal",
-] + _DOG_NOISE_OF_INTEREST
+]
+
+_CLASSES_OF_INTEREST = _ANIMAL_CLASSES_OF_INTEREST + _DOG_NOISE_OF_INTEREST
 
 CLASSES_OF_INTEREST = [s.lower() for s in _CLASSES_OF_INTEREST]
+ANIMAL_CLASSES_OF_INTEREST = [s.lower() for s in _ANIMAL_CLASSES_OF_INTEREST]
 DOG_NOISE_OF_INTEREST = [s.lower() for s in _DOG_NOISE_OF_INTEREST]
 
 
@@ -37,12 +40,14 @@ class DogAudioDetectionSystem(BaseSystem):
 
         detected_classes = event["classes"]
         detected_dog_classes = [
-            c for c in detected_classes if c["label"].lower() in CLASSES_OF_INTEREST
+            c
+            for c in detected_classes
+            if c["label"].lower() in ANIMAL_CLASSES_OF_INTEREST and c["score"] >= 0.8
         ]
-        detected_dog_classes = [c for c in detected_dog_classes if c["score"] > 0.5]
-        detected_lbls = [c["label"] for c in detected_dog_classes]
         detected_dog_noise_classes = [
-            l for l in detected_lbls if l.lower() in DOG_NOISE_OF_INTEREST
+            c
+            for c in detected_classes
+            if c["label"].lower() in DOG_NOISE_OF_INTEREST and c["score"] >= 0.5
         ]
         if len(detected_dog_classes) > 2 and detected_dog_noise_classes:
             self.raw_detection_end_timestamp = None
@@ -53,7 +58,8 @@ class DogAudioDetectionSystem(BaseSystem):
                     "dog_bark_begin",
                     {
                         "begin_timestamp": self.raw_detection_begin_timestamp,
-                        "detected_classes": detected_dog_classes,
+                        "detected_classes": detected_dog_classes
+                        + detected_dog_noise_classes,
                     },
                 )
             else:
