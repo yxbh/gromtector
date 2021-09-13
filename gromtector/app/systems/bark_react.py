@@ -84,7 +84,7 @@ class BarkReactSystem(BaseSystem):
                 continue
 
             server_ssl = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-            server_ssl.ehlo() # optional, called by login()
+            server_ssl.ehlo()  # optional, called by login()
             server_ssl.login(system.bark_notify_email, system.gmail_app_pw)
 
             while not system.dogbark_events.empty():
@@ -93,20 +93,31 @@ class BarkReactSystem(BaseSystem):
                 email_subject = "Gromtector: Gromit barking detected"
                 email_from = system.bark_notify_email
                 email_to = system.bark_notify_email
-                email_msg = "From: {}\nTo: {}\nSubject: {}\n\nGromit barking detected: {} - {}\n\nTrigger classes:\n{}".format(
+                email_msg = (
+                    "From: {}\n"
+                    "To: {}\n"
+                    "Subject: {}\n\n"
+                    "Gromit barking detected.\n"
+                    "{} -\n{}\n\n"
+                    "Trigger classes:\n"
+                    "{}"
+                ).format(
                     email_from,
                     email_to,
                     email_subject,
                     event["begin_timestamp"].astimezone(tz=None),
                     event["end_timestamp"].astimezone(tz=None),
-                    "\n".join([f'"{cl["label"]}": {cl["score"]}' for cl in event["trigger_classes"]]),
+                    "\n".join(
+                        [
+                            f'"{cl["label"]}": {cl["score"]}'
+                            for cl in event["trigger_classes"]
+                        ]
+                    ),
                 )
-                # ssl server doesn't support or need tls, so don't call server_ssl.starttls() 
+                # ssl server doesn't support or need tls, so don't call server_ssl.starttls()
                 server_ssl.sendmail(email_from, [email_to], email_msg)
 
-            #server_ssl.quit()
+            # server_ssl.quit()
             server_ssl.close()
 
         logger.debug("Reaching the end of the email sender thread.")
-
-        
