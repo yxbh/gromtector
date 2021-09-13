@@ -76,7 +76,7 @@ class DogAudioDetectionSystem(BaseSystem):
                 and self.last_raw_bark_end_timestamp is None
             ):
                 # barking stopped.
-                self.last_raw_bark_end_timestamp = datetime.utcnow()
+                self.last_raw_bark_end_timestamp = datetime.now(tz=timezone.utc)
 
     def update(self, elapsed_time_ms: int) -> None:
         evt_mgr = self.get_event_manager()

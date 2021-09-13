@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import threading
 import os
@@ -106,7 +106,7 @@ class AudioFileSystem(BaseSystem):
                 break
 
             try:
-                utcnow = datetime.utcnow()
+                utcnow = datetime.now(tz=timezone.utc)
                 aud_f_data = system.audio_file.read()
                 system.audio_out_stream.write(aud_f_data.data.tobytes())
                 system.audio_data_queue.put((aud_f_data, utcnow))

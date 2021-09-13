@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import threading
 import queue
@@ -68,7 +68,7 @@ class AudioMicSystem(BaseSystem):
             if hasattr(system.mic, "buffer") and not system.mic.buffer:
                 continue
 
-            utcnow = datetime.utcnow()
+            utcnow = datetime.now(tz=timezone.utc)
             data = system.mic.read()
             if data.size:
                 system.audio_data_queue.put((data, utcnow))
