@@ -130,3 +130,7 @@ dmypy.json
 
 
 .vscode/
+
+
+samples/
+gromtector/notebooks/notebook_debug.py
