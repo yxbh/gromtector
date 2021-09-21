@@ -5,20 +5,22 @@ import random
 import smtplib
 import threading
 import time
+from typing import Sequence
 
 from .BaseSystem import BaseSystem
 
 from pydub import AudioSegment
 from simpleaudio import play_buffer
+from simpleaudio.shiny import PlayObject
 
 
 logger = logging.getLogger(__name__)
 
 
 class BarkReactSystem(BaseSystem):
-    bark_response_playback_path: str = None
-    clip = None
-    play_obj = None
+    bark_response_playback_paths: Sequence[str] = None
+    clips: Sequence[AudioSegment] = None
+    play_obj: PlayObject = None
 
     dogbark_events: queue.Queue = None
 
