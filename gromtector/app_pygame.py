@@ -2,7 +2,7 @@
 gromtector
 
 Usage:
-  gromtector [--file=<INPUT_FILE>]  [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--bark-response-audio=<BARKRA> --bark-notify-email=<BARKNE> --gmail-app-pw=<GMAIL_PW>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
+  gromtector [--file=<INPUT_FILE>]  [--tf-model=<MODEL_PATH>] [--graph-palette=<GRAPH_PALETTE>] [--bark-response-audio=<BARKRA>... --bark-notify-email=<BARKNE> --gmail-app-pw=<GMAIL_PW>] [--max-fps=<MAX_FPS>] [--log-level=<log_lvl>]
   gromtector extract <AUDIO_PATH> [--log-level=<log_lvl>]
   gromtector -h | --help
 
@@ -73,8 +73,11 @@ def main():
             DogAudioDetectionSystem,
             BarkReactSystem,
             HudSystem,
-            TfYamnetSystem,
         ]
+        if cli_params["--tf-model"]:
+            system_classes += [
+                TfYamnetSystem,
+            ]
 
         app = Application(
             args=cli_params,

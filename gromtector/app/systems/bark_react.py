@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import queue
+import random
 import smtplib
 import threading
 import time
@@ -34,16 +35,21 @@ class BarkReactSystem(BaseSystem):
 
         configs = self.get_config()
 
-        self.bark_response_playback_path = configs["--bark-response-audio"]
+        self.bark_response_playback_paths = configs["--bark-response-audio"]
         self.bark_notify_email = configs["--bark-notify-email"]
         self.gmail_app_pw = configs["--gmail-app-pw"]
 
-        if self.bark_response_playback_path:
-            self.clip = AudioSegment.from_file(self.bark_response_playback_path)
+        self.clips = []
+        if self.bark_response_playback_paths:
+            for bark_response_playback_path in self.bark_response_playback_paths:
+                self.clips.append(AudioSegment.from_file(bark_response_playback_path))
         else:
-            self.clip = AudioSegment.from_file("samples/voice_clip_goodboy.m4a")
-        if self.clip is not None:
-            self.clip.apply_gain(+20.0)
+            self.clips = [
+                AudioSegment.from_file("samples/voice_clip_goodboy.m4a")
+            ]
+        if self.clips:
+            for clip in self.clips:
+                clip.apply_gain(+20.0)
 
         self.dogbark_events = queue.Queue()
         self.running = True
@@ -61,11 +67,13 @@ class BarkReactSystem(BaseSystem):
 
     def handle_dogbark_begin(self, event_type, event) -> None:
         if self.play_obj is None:
+            clip_idx = random.randint(0, len(self.clips)-1)
+            clip = self.clips[clip_idx]
             self.play_obj = play_buffer(
-                self.clip.raw_data,
-                num_channels=self.clip.channels,
-                bytes_per_sample=self.clip.sample_width,
-                sample_rate=self.clip.frame_rate,
+                clip.raw_data,
+                num_channels=clip.channels,
+                bytes_per_sample=clip.sample_width,
+                sample_rate=clip.frame_rate,
             )
 
     def handle_dogbark_detected(self, event_type, event) -> None:
