@@ -21,14 +21,20 @@ def extract_audio_inplace(args: dict) -> None:
                 src_audio_paths.append(ip)
 
     for input_file_path in src_audio_paths:
-        logger.info(f"Extracting audio from {input_file_path}")
-        seg = ad.from_file(input_file_path)
         target_dir = input_file_path.parent
         src_filename = input_file_path.name
         src_fname, src_fext = os.path.splitext(src_filename)
+
+        output_f_path = f"{target_dir / src_fname}.wav".format(src_fname)
+        if Path(output_f_path).exists():
+            continue
+
+        logger.info(f"Extracting audio from {input_file_path}")
+
+        seg = ad.from_file(input_file_path)
         seg = seg.resample(
             channels=1,
             sample_rate_Hz=16000,
             sample_width=2,
         )
-        seg.export(f"{target_dir / src_fname}.wav".format(src_fname), format="wav")
+        seg.export(output_f_path, format="wav")
