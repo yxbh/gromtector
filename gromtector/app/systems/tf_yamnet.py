@@ -132,19 +132,19 @@ class TfYamnetLiteSystem(BaseTfYamnetSystem):
             top_class_indices = top_results.indices[0].numpy()
             top_class_probs = top_results.values[0].numpy()
             # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
-            logger.debug(
-                "Detected (took {:.3f}s): {}".format(
-                    (end - start),
-                    ", ".join(
-                        [
-                            "{} ({:.3f})".format(
-                                system.model_labels[idx], scores[0][idx]
-                            )
-                            for idx in top_class_indices
-                        ]
-                    ),
-                )
-            )
+            # logger.debug(
+            #     "Detected (took {:.3f}s): {}".format(
+            #         (end - start),
+            #         ", ".join(
+            #             [
+            #                 "{} ({:.3f})".format(
+            #                     system.model_labels[idx], scores[0][idx]
+            #                 )
+            #                 for idx in top_class_indices
+            #             ]
+            #         ),
+            #     )
+            # )
             system.get_event_manager().queue_event(
                 "detected_classes",
                 {
@@ -248,19 +248,19 @@ class TfYamnetSavedmodelSystem(BaseTfYamnetSystem):
             top_class_indices = top_results.indices.numpy()
             top_class_probs = top_results.values.numpy()
             # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
-            logger.debug(
-                "Detected (took {:.3f}s): {}".format(
-                    (end - start),
-                    ", ".join(
-                        [
-                            "{} ({:.3f})".format(
-                                system.model_labels[idx], scores_max[idx]
-                            )
-                            for idx in top_class_indices
-                        ]
-                    ),
-                )
-            )
+            # logger.debug(
+            #     "Detected (took {:.3f}s): {}".format(
+            #         (end - start),
+            #         ", ".join(
+            #             [
+            #                 "{} ({:.3f})".format(
+            #                     system.model_labels[idx], scores_max[idx]
+            #                 )
+            #                 for idx in top_class_indices
+            #             ]
+            #         ),
+            #     )
+            # )
             system.get_event_manager().queue_event(
                 "detected_classes",
                 {
