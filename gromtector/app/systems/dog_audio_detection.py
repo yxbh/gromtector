@@ -49,7 +49,7 @@ class DogAudioDetectionSystem(BaseSystem):
         detected_dog_noise_classes = [
             c
             for c in detected_classes
-            if c["label"].lower() in DOG_NOISE_OF_INTEREST and c["score"] >= 0.55
+            if c["label"].lower() in DOG_NOISE_OF_INTEREST and c["score"] >= 0.70
         ]
         if len(detected_dog_classes) > 2 and detected_dog_noise_classes:
             self.raw_detection_end_timestamp = None
