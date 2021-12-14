@@ -8,7 +8,7 @@ Few things we need to do setup audio processing on windows.
 
 ### PyAudio
 
-For windows, download suitable PyAudio wheel file from here and pip install.
+For windows, download suitable PyAudio wheel file from [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio) and pip install.
 
 ### ffmpeg
 
