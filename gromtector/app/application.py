@@ -1,8 +1,6 @@
-from collections import defaultdict
-from typing import Sequence
+from typing import Mapping, Sequence
 from gromtector.app.systems.BaseSystem import BaseSystem
 import logging
-import queue
 import pygame as pg
 
 from .BaseApplication import BaseApplication
@@ -17,7 +15,7 @@ APP_SINGLETON = None
 
 
 class Application(BaseApplication):
-    def __init__(self, args, system_classes=[]):
+    def __init__(self, args: Mapping, system_classes: Sequence[BaseSystem] = []):
         global APP_SINGLETON
         if APP_SINGLETON is not None:
             raise RuntimeError(
@@ -28,15 +26,26 @@ class Application(BaseApplication):
         self.args = args
 
         self.window = Window(width=900, height=400)
-        self.running = True
+        self.running: bool = True
 
         self.clock = pg.time.Clock()
         self.max_fps = int(self.args.get("--max-fps", 60))
 
         self.event_manager = EventManager()
 
-        self.systems = []
-        self.system_classes: Sequence[BaseSystem] = system_classes
+        self.systems: Sequence[BaseSystem] = []
+        self.system_classes: Sequence[BaseSystem.__class__] = system_classes
+
+        self._is_server = args["--server-mode"]
+        self._is_client = args["--client-mode"]
+
+    @property
+    def is_server(self) -> bool:
+        return self._is_server
+
+    @property
+    def is_client(self) -> bool:
+        return self._is_client
 
     def init_systems(self):
         for cls in self.system_classes:
@@ -72,6 +81,10 @@ class Application(BaseApplication):
                 if pg_event.type == pg.QUIT:
                     logger.info("Exit requested.")
                     self.running = False
+                elif pg_event.type in [
+                    pg.KEYDOWN, pg.KEYUP,
+                ]:
+                    self.event_manager.dispatch_event("keyboard_event", pg_event)
 
             self.window.window_surface.fill((0, 0, 0))
 

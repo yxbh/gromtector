@@ -5,6 +5,7 @@ numpy
 pyAudio
 pydub
 pygame
+pyzmq
 scipy
 tensorflow
 scikit-learn

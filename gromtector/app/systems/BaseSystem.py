@@ -7,7 +7,7 @@ class BaseSystem:
     def __init__(self, app: BaseApplication, config: dict=None):
         if not app:
             raise RuntimeError("Where mah app?!")
-        self.app = app
+        self.app: BaseApplication = app
         self.config = config
 
     def get_app(self) -> BaseApplication:
