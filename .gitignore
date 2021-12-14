@@ -135,3 +135,4 @@ dmypy.json
 
 samples/
 gromtector/notebooks/notebook_debug.py
+venv_39/
