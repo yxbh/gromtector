@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Sequence, Tuple
+
+from gromtector.app.events import InputAudioDataEvent
 from .BaseSystem import BaseSystem
 import pygame as pg
 import pygame.freetype as pgft
@@ -91,11 +93,11 @@ class HudSystem(BaseSystem):
         self.times_max = event["new_max_time"]
         self.times_min = event["new_min_time"]
 
-    def receive_audio_data(self, event_type, new_audio_data):
+    def receive_audio_data(self, event_type, new_audio_data: InputAudioDataEvent):
         self.sample_rate = new_audio_data.rate
 
     def recev_detected_classes(self, event_type, event):
-        detected_classes = event["classes"]
+        detected_classes = event.classes
         detected_classes = [
             dc for dc in detected_classes if dc["score"] > self.score_thredshold
         ]
@@ -107,12 +109,12 @@ class HudSystem(BaseSystem):
     def recv_dog_bark_detected(self, event_type, evt):
         self.dog_audio_active = event_type == "dog_bark_begin"
         if event_type == "dog_bark_begin":
-            self.last_trigger_classes = evt["detected_classes"]
+            self.last_trigger_classes = evt.detected_classes
 
     def recv_highlvl_audio_evt(self, event_type, evt: dict):
         if event_type == "audio_event_dogbark":
-            self.latest_event_dogbark_begin = evt["begin_timestamp"]
-            self.latest_event_dogbark_end = evt["end_timestamp"]
+            self.latest_event_dogbark_begin = evt.begin_timestamp
+            self.latest_event_dogbark_end = evt.end_timestamp
 
     def update(self, elapsed_time_ms: int) -> None:
         render_surface = self.get_app().window.window_surface

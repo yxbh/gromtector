@@ -19,11 +19,11 @@ class KeyboardSystem(BaseSystem):
         if kb_event.key == pg.K_SPACE:
             if self.app.is_server:
                 evt_manager.queue_event("broadcast_to_clients", {
-                    "foo": "bar"
+                    "event_type": "test"
                 })
             if self.app.is_client:
                 evt_manager.queue_event("push_to_server", {
-                    "foo": "bar"
+                    "event_type": "test"
                 })
 
     def shutdown(self):

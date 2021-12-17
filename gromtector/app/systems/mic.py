@@ -2,8 +2,9 @@ from datetime import datetime, timezone
 import logging
 import threading
 import queue
-from collections import namedtuple
 import numpy as np
+
+from gromtector.app.events import InputAudioDataEvent
 
 from .BaseSystem import BaseSystem
 
@@ -12,23 +13,29 @@ from gromtector.audio_mic import AudioMic, CallbackAudioMic
 logger = logging.getLogger(__name__)
 
 
-InputAudioDataEvent = namedtuple(
-    "InputAudioDataEvent", ["data", "rate", "begin_timestamp"]
-)
-
-
 class AudioMicSystem(BaseSystem):
     def init(self):
         self.mic = AudioMic(channels=1, sample_rate=44100)
         self.mic.open()
         self.running = True
         self.audio_thread = None
-        self.audio_data_queue = queue.Queue()
+        self.audio_data_queue: queue.Queue[(bytes, datetime)] = queue.Queue()
 
     def shutdown(self):
         self.running = False
         self.audio_thread.join()
         self.mic.close()
+
+    def _dispatch_audio_data(self, dataset, dataset_utcbegin):
+        data = np.concatenate(dataset)
+        self.get_event_manager().queue_event(
+            InputAudioDataEvent.EVENT_TYPE,
+            InputAudioDataEvent(
+                data=data,
+                rate=self.mic.sample_rate,
+                begin_timestamp=dataset_utcbegin,
+            ),
+        )
 
     def update(self, elapsed_time_ms: int) -> None:
         dataset = []
@@ -39,16 +46,7 @@ class AudioMicSystem(BaseSystem):
                 dataset_utcbegin = utc_begin
             dataset.append(audio_raw)
         if dataset:
-            data = np.concatenate(dataset)
-            self.get_event_manager().queue_event(
-                "new_audio_data",
-                InputAudioDataEvent(
-                    data=data,
-                    rate=self.mic.sample_rate,
-                    begin_timestamp=dataset_utcbegin,
-                ),
-            )
-        pass
+            self._dispatch_audio_data(dataset, dataset_utcbegin)
 
     def run(self):
         self.audio_thread = threading.Thread(
@@ -76,3 +74,19 @@ class AudioMicSystem(BaseSystem):
             # logger.debug("Just read {} bytes of audio data.".format(len(data)))
 
         logger.debug("Reaching the end of the audio mic thread.")
+
+
+class ClientAudioMicSystem(AudioMicSystem):
+    def init(self):
+        super().__init__()
+
+    def _dispatch_audio_data(self, dataset, dataset_utcbegin):
+        data = np.concatenate(dataset)
+        self.get_event_manager().queue_event(
+            "new_client_audio_data",
+            InputAudioDataEvent(
+                data=data,
+                rate=self.mic.sample_rate,
+                begin_timestamp=dataset_utcbegin,
+            ),
+        )

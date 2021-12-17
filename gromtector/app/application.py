@@ -25,7 +25,14 @@ class Application(BaseApplication):
 
         self.args = args
 
-        self.window = Window(width=900, height=400)
+        self._is_server = args["--server-mode"]
+        self._is_client = args["--client-mode"]
+
+        self.window = Window(
+            title="GROMTECTOR: Server" if self.is_server else "GROMTECTOR: Client",
+            width=900,
+            height=400,
+        )
         self.running: bool = True
 
         self.clock = pg.time.Clock()
@@ -35,9 +42,6 @@ class Application(BaseApplication):
 
         self.systems: Sequence[BaseSystem] = []
         self.system_classes: Sequence[BaseSystem.__class__] = system_classes
-
-        self._is_server = args["--server-mode"]
-        self._is_client = args["--client-mode"]
 
     @property
     def is_server(self) -> bool:
@@ -82,7 +86,8 @@ class Application(BaseApplication):
                     logger.info("Exit requested.")
                     self.running = False
                 elif pg_event.type in [
-                    pg.KEYDOWN, pg.KEYUP,
+                    pg.KEYDOWN,
+                    pg.KEYUP,
                 ]:
                     self.event_manager.dispatch_event("keyboard_event", pg_event)
 

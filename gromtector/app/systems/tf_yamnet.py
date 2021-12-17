@@ -4,11 +4,13 @@ import logging
 import threading
 import time
 import zipfile
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 import numpy as np
 import tensorflow as tf
 import audiosegment as ad
 from sklearn.preprocessing import minmax_scale
+
+from gromtector.app.events import DetectedObjectClassesEvent, InputAudioDataEvent
 
 from .BaseSystem import BaseSystem
 
@@ -22,8 +24,8 @@ class BaseTfYamnetSystem(BaseSystem):
     model: tf.lite.Interpreter = None
     model_sample_rate: int = 16000  # The model required audio sample rate.
     model_labels: Sequence[str] = None
-    raw_audio_buffer = b""
-    raw_audio_utc_begin: datetime = None
+    raw_audio_buffers_by_client_ids: Mapping[Any, bytes] = {}
+    raw_audio_utc_begins_by_client_ids: Mapping[Any, datetime] = {}
 
     running: bool = False
     inference_thread: threading.Thread = None
@@ -42,8 +44,9 @@ class BaseTfYamnetSystem(BaseSystem):
         )
         self.inference_thread.start()
 
-    def _recv_audio_data(self, event_type, audio_event) -> None:
-        self.raw_audio_utc_begin = audio_event.begin_timestamp
+    def _recv_audio_data(self, event_type, audio_event: InputAudioDataEvent) -> None:
+        client_id = audio_event.client_id
+        self.raw_audio_utc_begins_by_client_ids[client_id] = audio_event.begin_timestamp
 
         audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
 
@@ -51,11 +54,16 @@ class BaseTfYamnetSystem(BaseSystem):
         resampled_audio_seg = audio_seg.resample(
             sample_rate_Hz=16000, sample_width=self.audio_sample_width, channels=1
         )
-        if self.raw_audio_buffer is None:
-            self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
+        if client_id not in self.raw_audio_buffers_by_client_ids:
+            self.raw_audio_buffers_by_client_ids[
+                client_id
+            ] = resampled_audio_seg.seg.raw_data
         else:
-            temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
-            self.raw_audio_buffer = temp[
+            temp = (
+                self.raw_audio_buffers_by_client_ids[client_id]
+                + resampled_audio_seg.seg.raw_data
+            )
+            self.raw_audio_buffers_by_client_ids[client_id] = temp[
                 -self.model_sample_rate * self.audio_sample_width :
             ]  # Only keep the most recent second of audio.
 
@@ -97,67 +105,73 @@ class TfYamnetLiteSystem(BaseTfYamnetSystem):
                 logger.warning("Model not ready.")
                 continue
 
-            if not system.raw_audio_buffer:
-                continue
+            for client_id, raw_audio_buf in list(
+                system.raw_audio_buffers_by_client_ids.items()
+            ):
+                if not raw_audio_buf:
+                    continue
 
-            interpreter = system.model
+                interpreter = system.model
 
-            pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
-            num_samples = int(0.975 * system.model_sample_rate)
-            num_to_pad = num_samples - pcm_int16.size
-            if num_to_pad < 0:
-                num_to_pad = 0
-            num_to_pad += 2
-            waveform = np.pad(pcm_int16, (0, num_to_pad))
-            int16_iinfo = np.iinfo(np.int16)
-            waveform[-1] = int16_iinfo.max
-            waveform[-2] = int16_iinfo.min
+                pcm_int16 = np.frombuffer(raw_audio_buf, dtype=np.int16)
+                num_samples = int(0.975 * system.model_sample_rate)
+                num_to_pad = num_samples - pcm_int16.size
+                if num_to_pad < 0:
+                    num_to_pad = 0
+                num_to_pad += 2
+                waveform = np.pad(pcm_int16, (0, num_to_pad))
+                int16_iinfo = np.iinfo(np.int16)
+                waveform[-1] = int16_iinfo.max
+                waveform[-2] = int16_iinfo.min
 
-            waveform = waveform.astype(np.float32)
-            waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
-            waveform = waveform[:num_samples]
+                waveform = waveform.astype(np.float32)
+                waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
+                waveform = waveform[:num_samples]
 
-            # interpreter.resize_tensor_input(
-            #     system.waveform_input_index, [waveform.size], strict=True
-            # )
-            # interpreter.allocate_tensors()
-            interpreter.set_tensor(system.waveform_input_index, waveform)
-            start = time.time()
-            interpreter.invoke()
-            scores = interpreter.get_tensor(system.scores_output_index)
-            end = time.time()
+                # interpreter.resize_tensor_input(
+                #     system.waveform_input_index, [waveform.size], strict=True
+                # )
+                # interpreter.allocate_tensors()
+                interpreter.set_tensor(system.waveform_input_index, waveform)
+                start = time.time()
+                interpreter.invoke()
+                scores = interpreter.get_tensor(system.scores_output_index)
+                end = time.time()
 
-            top_class_index = scores.argmax()
-            top_results = tf.math.top_k(scores, k=10)
-            top_class_indices = top_results.indices[0].numpy()
-            top_class_probs = top_results.values[0].numpy()
-            # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
-            # logger.debug(
-            #     "Detected (took {:.3f}s): {}".format(
-            #         (end - start),
-            #         ", ".join(
-            #             [
-            #                 "{} ({:.3f})".format(
-            #                     system.model_labels[idx], scores[0][idx]
-            #                 )
-            #                 for idx in top_class_indices
-            #             ]
-            #         ),
-            #     )
-            # )
-            system.get_event_manager().queue_event(
-                "detected_classes",
-                {
-                    "begin_timestamp": system.raw_audio_utc_begin,
-                    "classes": [
-                        {
-                            "label": system.model_labels[idx],
-                            "score": scores[0][idx],
-                        }
-                        for idx in top_class_indices
-                    ],
-                },
-            )
+                top_class_index = scores.argmax()
+                top_results = tf.math.top_k(scores, k=10)
+                top_class_indices = top_results.indices[0].numpy()
+                top_class_probs = top_results.values[0].numpy()
+                # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
+                # logger.debug(
+                #     "Detected (took {:.3f}s): {}".format(
+                #         (end - start),
+                #         ", ".join(
+                #             [
+                #                 "{} ({:.3f})".format(
+                #                     system.model_labels[idx], scores[0][idx]
+                #                 )
+                #                 for idx in top_class_indices
+                #             ]
+                #         ),
+                #     )
+                # )
+                system.get_event_manager().queue_event(
+                    DetectedObjectClassesEvent.EVENT_TYPE,
+                    DetectedObjectClassesEvent(
+                        client_id=client_id,
+                        begin_timestamp=system.raw_audio_utc_begins_by_client_ids[
+                            client_id
+                        ],
+                        classes=[
+                            {
+                                "label": system.model_labels[idx],
+                                "score": float(scores[0][idx]),
+                            }
+                            for idx in top_class_indices
+                        ],
+                    ),
+                )
 
         logger.debug("Reaching the end of the model inference thread.")
 
@@ -195,7 +209,7 @@ class TfYamnetSavedmodelSystem(BaseTfYamnetSystem):
     @classmethod
     def run_inference_thread(cls, system: TfYamnetSavedmodelSystem):
         last_time = time.time()
-        cumu_time_s = 0.
+        cumu_time_s = 0.0
         while system.running:
 
             now_time = time.time()
@@ -213,67 +227,73 @@ class TfYamnetSavedmodelSystem(BaseTfYamnetSystem):
                 logger.warning("Model not ready.")
                 continue
 
-            if not system.raw_audio_buffer:
-                continue
+            for client_id, raw_audio_buf in list(
+                system.raw_audio_buffers_by_client_ids.items()
+            ):
+                if not raw_audio_buf:
+                    continue
 
-            pcm_int16 = np.frombuffer(system.raw_audio_buffer, dtype=np.int16)
-            num_samples = int(0.975 * system.model_sample_rate)
+                pcm_int16 = np.frombuffer(raw_audio_buf, dtype=np.int16)
+                num_samples = int(0.975 * system.model_sample_rate)
 
-            # Pad the waveform to the model required sample length + 2 so we can
-            # add the integer min and max to make sure scaling is relative to the
-            # the type min/max.
-            num_to_pad = num_samples - pcm_int16.size
-            if num_to_pad < 0:
-                num_to_pad = 0
-            num_to_pad += 2
-            waveform = np.pad(pcm_int16, (0, num_to_pad))
-            int16_iinfo = np.iinfo(np.int16)
-            waveform[-1] = int16_iinfo.max
-            waveform[-2] = int16_iinfo.min
+                # Pad the waveform to the model required sample length + 2 so we can
+                # add the integer min and max to make sure scaling is relative to the
+                # the type min/max.
+                num_to_pad = num_samples - pcm_int16.size
+                if num_to_pad < 0:
+                    num_to_pad = 0
+                num_to_pad += 2
+                waveform = np.pad(pcm_int16, (0, num_to_pad))
+                int16_iinfo = np.iinfo(np.int16)
+                waveform[-1] = int16_iinfo.max
+                waveform[-2] = int16_iinfo.min
 
-            waveform = waveform.astype(np.float32)
-            waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
-            waveform = waveform[:-2]
+                waveform = waveform.astype(np.float32)
+                waveform = minmax_scale(waveform, feature_range=(-1, 1), copy=False)
+                waveform = waveform[:-2]
 
-            # Run the model, check the output.
-            start = time.time()
-            scores, embeddings, log_mel_spectrogram = system.model(waveform)
-            end = time.time()
-            scores.shape.assert_is_compatible_with([None, 521])
-            embeddings.shape.assert_is_compatible_with([None, 1024])
-            log_mel_spectrogram.shape.assert_is_compatible_with([None, 64])
-            scores_max = tf.reduce_max(scores, axis=0)
+                # Run the model, check the output.
+                start = time.time()
+                scores, embeddings, log_mel_spectrogram = system.model(waveform)
+                end = time.time()
+                scores.shape.assert_is_compatible_with([None, 521])
+                embeddings.shape.assert_is_compatible_with([None, 1024])
+                log_mel_spectrogram.shape.assert_is_compatible_with([None, 64])
+                scores_max = tf.reduce_max(scores, axis=0)
 
-            top_results = tf.math.top_k(scores_max, k=10)
-            top_class_indices = top_results.indices.numpy()
-            top_class_probs = top_results.values.numpy()
-            # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
-            # logger.debug(
-            #     "Detected (took {:.3f}s): {}".format(
-            #         (end - start),
-            #         ", ".join(
-            #             [
-            #                 "{} ({:.3f})".format(
-            #                     system.model_labels[idx], scores_max[idx]
-            #                 )
-            #                 for idx in top_class_indices
-            #             ]
-            #         ),
-            #     )
-            # )
-            system.get_event_manager().queue_event(
-                "detected_classes",
-                {
-                    "begin_timestamp": system.raw_audio_utc_begin,
-                    "classes": [
-                        {
-                            "label": system.model_labels[idx],
-                            "score": scores_max[idx],
-                        }
-                        for idx in top_class_indices
-                    ],
-                },
-            )
+                top_results = tf.math.top_k(scores_max, k=10)
+                top_class_indices = top_results.indices.numpy()
+                top_class_probs = top_results.values.numpy()
+                # logger.debug("Detected: {}".format(system.model_labels[top_class_index]))
+                # logger.debug(
+                #     "Detected (took {:.3f}s): {}".format(
+                #         (end - start),
+                #         ", ".join(
+                #             [
+                #                 "{} ({:.3f})".format(
+                #                     system.model_labels[idx], scores_max[idx]
+                #                 )
+                #                 for idx in top_class_indices
+                #             ]
+                #         ),
+                #     )
+                # )
+                system.get_event_manager().queue_event(
+                    DetectedObjectClassesEvent.EVENT_TYPE,
+                    DetectedObjectClassesEvent(
+                        client_id=client_id,
+                        begin_timestamp=system.raw_audio_utc_begins_by_client_ids[
+                            client_id
+                        ],
+                        classes=[
+                            {
+                                "label": system.model_labels[idx],
+                                "score": float(scores[0][idx]),
+                            }
+                            for idx in top_class_indices
+                        ],
+                    ),
+                )
 
 
 class TfYamnetSystem(BaseSystem):
@@ -298,18 +318,18 @@ class TfYamnetSystem(BaseSystem):
     def shutdown(self) -> None:
         self._system.shutdown()
 
-    def recv_audio_data(self, event_type, audio_event) -> None:
-        audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
+    # def recv_audio_data(self, event_type, audio_event) -> None:
+    #     audio_seg = ad.from_numpy_array(audio_event.data, framerate=audio_event.rate)
 
-        # resample the audio to rate needed by the model.
-        resampled_audio_seg = audio_seg.resample(
-            sample_rate_Hz=16000, sample_width=2, channels=1
-        )
-        if self.raw_audio_buffer is None:
-            self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
-        else:
-            temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
-            self.raw_audio_buffer = temp[-self.model_sample_rate :]
+    #     # resample the audio to rate needed by the model.
+    #     resampled_audio_seg = audio_seg.resample(
+    #         sample_rate_Hz=16000, sample_width=2, channels=1
+    #     )
+    #     if self.raw_audio_buffer is None:
+    #         self.raw_audio_buffer = resampled_audio_seg.seg.raw_data
+    #     else:
+    #         temp = self.raw_audio_buffer + resampled_audio_seg.seg.raw_data
+    #         self.raw_audio_buffer = temp[-self.model_sample_rate :]
 
     def run(self) -> None:
         self._system.run()

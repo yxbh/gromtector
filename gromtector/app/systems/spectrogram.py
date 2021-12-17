@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 
+from gromtector.app.events import InputAudioDataEvent
+
 from .BaseSystem import BaseSystem
 
 from gromtector.spectrogram import get_spectrogram
@@ -21,7 +23,7 @@ class SpectrogramSystem(BaseSystem):
     def handle_input_audio_ended(self, event_type, evt):
         self.audio_data_buffer = None
 
-    def receive_audio_data(self, event_type, audio_mic_evt):
+    def receive_audio_data(self, event_type, audio_mic_evt: InputAudioDataEvent):
         self.sample_rate = audio_mic_evt.rate
         if self.audio_data_buffer is None:
             self.audio_data_buffer = audio_mic_evt.data

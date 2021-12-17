@@ -29,8 +29,6 @@ Options:
 """
 
 import logging
-import os
-import platform
 
 from docopt import docopt
 
@@ -78,24 +76,32 @@ def main():
             system_classes += [
                 AudioFileSystem,
             ]
-        elif cli_params["--client-mode"] or (
+
+        if cli_params["--client-mode"] or (
             not cli_params["--server-mode"] and not cli_params["--client-mode"]
         ):
             system_classes += [
                 AudioMicSystem,
+                BarkReactSystem,
             ]
+
+        if cli_params["--server-mode"] or (
+            not cli_params["--server-mode"] and not cli_params["--client-mode"]
+        ):
+            system_classes += [
+                DogAudioDetectionSystem,
+            ]
+
         system_classes += [
             DebugSystem,
             SpectrogramSystem,
             SpectrogramGraphSystem,
-            DogAudioDetectionSystem,
-            BarkReactSystem,
             HudSystem,
         ]
+
         if cli_params["--server-mode"] or cli_params["--client-mode"]:
             system_classes += [
                 MqSystem,
-                # TcpCommSystem,
             ]
 
         if cli_params["--tf-model"] and not cli_params["--client-mode"]:
