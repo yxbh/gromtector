@@ -45,10 +45,7 @@ class BarkReactSystem(BaseSystem):
         if self.bark_response_playback_paths:
             for bark_response_playback_path in self.bark_response_playback_paths:
                 self.clips.append(AudioSegment.from_file(bark_response_playback_path))
-        else:
-            self.clips = [
-                AudioSegment.from_file("samples/voice_clip_goodboy.m4a")
-            ]
+
         if self.clips:
             for clip in self.clips:
                 clip.apply_gain(+20.0)
@@ -68,7 +65,7 @@ class BarkReactSystem(BaseSystem):
             self.email_thread.join()
 
     def handle_dogbark_begin(self, event_type, event) -> None:
-        if self.play_obj is None:
+        if self.play_obj is None and self.clips:
             clip_idx = random.randint(0, len(self.clips)-1)
             clip = self.clips[clip_idx]
             self.play_obj = play_buffer(
