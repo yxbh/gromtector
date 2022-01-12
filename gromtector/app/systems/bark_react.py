@@ -3,6 +3,7 @@ import logging
 import queue
 import random
 import smtplib
+from socket import gethostname
 import threading
 import time
 from typing import Sequence
@@ -97,14 +98,14 @@ class BarkReactSystem(BaseSystem):
             while not system.dogbark_events.empty():
                 event = system.dogbark_events.get()
 
-                email_subject = "Gromtector: Gromit barking detected"
+                email_subject = "Gromtector: barking detected"
                 email_from = system.bark_notify_email
                 email_to = system.bark_notify_email
                 email_msg = (
                     "From: {}\n"
                     "To: {}\n"
                     "Subject: {}\n\n"
-                    "Gromit barking detected.\n"
+                    "Barking detected on {}.\n"
                     "{} -\n{}\n\n"
                     "Trigger classes:\n"
                     "{}"
@@ -112,6 +113,7 @@ class BarkReactSystem(BaseSystem):
                     email_from,
                     email_to,
                     email_subject,
+                    gethostname(),
                     event["begin_timestamp"].astimezone(tz=None),
                     event["end_timestamp"].astimezone(tz=None),
                     "\n".join(
