@@ -113,12 +113,14 @@ class BarkReactSystem(BaseSystem):
                 email_subject = "Gromtector: barking detected"
                 email_from = system.bark_notify_email
                 email_to = system.bark_notify_email
+                begin_ts = event["begin_timestamp"].astimezone(tz=None).strftime("%Y-%m-%d %H:%M:%S")
+                end_ts = event["end_timestamp"].astimezone(tz=None).strftime("%Y-%m-%d %H:%M:%S")
                 email_msg = (
                     "From: {}\n"
                     "To: {}\n"
                     "Subject: {}\n\n"
-                    "Barking detected on {}.\n"
-                    "{} -\n{}\n\n"
+                    "Barking detected on \"{}\".\n"
+                    "{} - {}\n\n"
                     "Trigger classes:\n"
                     "{}"
                 ).format(
@@ -126,11 +128,11 @@ class BarkReactSystem(BaseSystem):
                     email_to,
                     email_subject,
                     gethostname(),
-                    event["begin_timestamp"].astimezone(tz=None),
-                    event["end_timestamp"].astimezone(tz=None),
+                    begin_ts,
+                    end_ts,
                     "\n".join(
                         [
-                            f'"{cl["label"]}": {cl["score"]}'
+                            f'"{cl["label"]}": {cl["score"]:.3f}'
                             for cl in event["trigger_classes"]
                         ]
                     ),
