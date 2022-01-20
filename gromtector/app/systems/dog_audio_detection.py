@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+import logging
 from typing import Sequence
 from .BaseSystem import BaseSystem
 
+
+logger = logging.getLogger(__name__)
 
 _DOG_NOISE_OF_INTEREST = [
     "Bark",
@@ -37,6 +40,13 @@ class DogAudioDetectionSystem(BaseSystem):
         evt_mgr = self.get_event_manager()
         evt_mgr.add_listener("detected_classes", self.recv_dclasses)
 
+        configs = self.get_config()
+        self.animal_class_threshold = float(configs["--dog-class-threshold"])
+        self.dog_audio_class_threshold = float(configs["--dog-audio-class-threshold"])
+
+        logger.info("Dog class threshold: %.2f", self.animal_class_threshold)
+        logger.info("Dog audio class threshold: %.2f", self.dog_audio_class_threshold)
+
     def recv_dclasses(self, event_type, event) -> None:
         evt_mgr = self.get_event_manager()
 
@@ -44,12 +54,12 @@ class DogAudioDetectionSystem(BaseSystem):
         detected_dog_classes = [
             c
             for c in detected_classes
-            if c["label"].lower() in ANIMAL_CLASSES_OF_INTEREST and c["score"] >= 0.9
+            if c["label"].lower() in ANIMAL_CLASSES_OF_INTEREST and c["score"] >= self.animal_class_threshold
         ]
         detected_dog_noise_classes = [
             c
             for c in detected_classes
-            if c["label"].lower() in DOG_NOISE_OF_INTEREST and c["score"] >= 0.85
+            if c["label"].lower() in DOG_NOISE_OF_INTEREST and c["score"] >= self.dog_audio_class_threshold
         ]
         if len(detected_dog_classes) > 2 and detected_dog_noise_classes:
             self.raw_detection_end_timestamp = None
