@@ -42,10 +42,22 @@ class BarkReactSystem(BaseSystem):
         self.bark_notify_email = configs["--bark-notify-email"]
         self.gmail_app_pw = configs["--gmail-app-pw"]
 
+        if self.gmail_app_pw and not self.bark_notify_email:
+            err_msg = "An email password was given but no sender email was provided."
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+
+        if not self.gmail_app_pw and self.bark_notify_email:
+            err_msg = "An email address was given but no password was provided."
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+
         self.clips = []
         if self.bark_response_playback_paths:
             for bark_response_playback_path in self.bark_response_playback_paths:
                 self.clips.append(AudioSegment.from_file(bark_response_playback_path))
+        else:
+            logger.warning("No dog bark response audio clips were provided.")
 
         if self.clips:
             for clip in self.clips:
