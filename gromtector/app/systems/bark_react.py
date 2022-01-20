@@ -122,7 +122,9 @@ class BarkReactSystem(BaseSystem):
                     "Barking detected on \"{}\".\n"
                     "{} - {}\n\n"
                     "Trigger classes:\n"
-                    "{}"
+                    "{}\n\n"
+                    f'Dog class threshold: {event["dog_class_threshold"]:.2f}\n'
+                    f'Dog audio class threshold: {event["dog_audio_class_threshold"]:.2f}\n'
                 ).format(
                     email_from,
                     email_to,

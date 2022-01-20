@@ -74,6 +74,8 @@ class DogAudioDetectionSystem(BaseSystem):
                     {
                         "begin_timestamp": self.raw_detection_begin_timestamp,
                         "detected_classes": self.initial_trigger_classes,
+                        "dog_class_threshold": self.animal_class_threshold,
+                        "dog_audio_class_threshold": self.dog_audio_class_threshold,
                     },
                 )
             else:
@@ -104,6 +106,8 @@ class DogAudioDetectionSystem(BaseSystem):
                         "begin_timestamp": self.raw_detection_begin_timestamp,
                         "end_timestamp": self.raw_detection_end_timestamp,
                         "trigger_classes": self.initial_trigger_classes,
+                        "dog_class_threshold": self.animal_class_threshold,
+                        "dog_audio_class_threshold": self.dog_audio_class_threshold,
                     },
                 )
 
@@ -111,6 +115,8 @@ class DogAudioDetectionSystem(BaseSystem):
                     "dog_bark_end",
                     {
                         "end_timestamp": self.raw_detection_end_timestamp,
+                        "dog_class_threshold": self.animal_class_threshold,
+                        "dog_audio_class_threshold": self.dog_audio_class_threshold,
                     },
                 )
 
