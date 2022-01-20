@@ -6,7 +6,7 @@ import smtplib
 from socket import gethostname
 import threading
 import time
-from typing import Sequence
+from typing import Optional, Sequence
 
 from .BaseSystem import BaseSystem
 
@@ -38,9 +38,9 @@ class BarkReactSystem(BaseSystem):
 
         configs = self.get_config()
 
-        self.bark_response_playback_paths = configs["--bark-response-audio"]
-        self.bark_notify_email = configs["--bark-notify-email"]
-        self.gmail_app_pw = configs["--gmail-app-pw"]
+        self.bark_response_playback_paths: Sequence = configs["--bark-response-audio"]
+        self.bark_notify_email: Optional[str] = configs["--bark-notify-email"]
+        self.gmail_app_pw: Optional[str] = configs["--gmail-app-pw"]
 
         if self.gmail_app_pw and not self.bark_notify_email:
             err_msg = "An email password was given but no sender email was provided."

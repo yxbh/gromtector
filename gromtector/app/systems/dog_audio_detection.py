@@ -41,8 +41,8 @@ class DogAudioDetectionSystem(BaseSystem):
         evt_mgr.add_listener("detected_classes", self.recv_dclasses)
 
         configs = self.get_config()
-        self.animal_class_threshold = float(configs["--dog-class-threshold"])
-        self.dog_audio_class_threshold = float(configs["--dog-audio-class-threshold"])
+        self.animal_class_threshold: float = float(configs["--dog-class-threshold"])
+        self.dog_audio_class_threshold: float = float(configs["--dog-audio-class-threshold"])
 
         logger.info("Dog class threshold: %.2f", self.animal_class_threshold)
         logger.info("Dog audio class threshold: %.2f", self.dog_audio_class_threshold)
